@@ -40,9 +40,14 @@ aarch64（torchcodec 在 aarch64 上被官方排除，sgl-kernel 全系列有 AR
 - **veRL 0.8.0 漏声明运行时依赖 `cachetools`**（`workers/rollout/llm_server.py` import 失败），
   已手动补装并写入 requirements.txt。
 - **verl FSDP worker 默认 attn_implementation=flash_attention_2**
-  （`verl/workers/config/model.py:185`），flash-attn 无 aarch64 预编译 wheel。
-  用 `+actor_rollout_ref.model.override_config.attn_implementation=sdpa` 覆盖，先跑通；
-  flash-attn 源码编译（约 30–60 分钟）留作后续优化项。
+  （`verl/workers/config/model.py:185`），已用
+  `+actor_rollout_ref.model.override_config.attn_implementation=sdpa` 覆盖模型注意力实现。
+- **flash_attn 包本身仍是 verl 0.8.0 训练路径的硬依赖**（`_compute_old_log_prob` →
+  `left_right_2_no_padding` → `flash_attn.bert_padding.unpad_input`，与注意力实现和
+  rollout 引擎选择无关）。PyPI 无 aarch64 wheel，但上游 GitHub release v2.8.3.post1 起
+  提供官方 aarch64 wheel（仅 cu13+torch2.9 变体）。已验证它与 cu129 torch 共存：
+  其 libcudart.so.13 由 pod 系统的 /usr/local/cuda 提供；模型注意力仍走 sdpa，
+  verl 只用到 bert_padding 的纯 torch 工具函数。
 - **veRL 0.8.0 移除了旧版 `examples/sglang_multiturn/` 的 GSM8K 现成示例**（Gsm8kTool 已不存在，
   skypilot yaml 里的引用是陈旧的）。官方 multi-turn tool 路径现为 **agent loop**：
   `examples/tutorial/agent_loop_get_started/`（ReAct + 代码沙箱 + MATH 数据 + GRPO 5 步演示），

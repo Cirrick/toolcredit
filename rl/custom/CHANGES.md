@@ -2,9 +2,9 @@
 
 原则（PLAN §1.3.4）：不 fork veRL；一切改动为最小 patch / 子类 / 配置注入，全部记录在此。
 
-## [待用户批准] verl 0.8.0 sglang kernel 检查的一行修复
+## [已应用] verl 0.8.0 sglang kernel 检查的一行修复
 
-- **状态**：已准备，未应用（2026-07-12 提交用户决策中）。
+- **状态**：用户 2026-07-12 批准方案 A，已应用（sglang_rollout.py:87）。
 - **文件**：`verl/workers/rollout/sglang_rollout/sglang_rollout.py`（site-packages 内，约第 87 行）。
 - **问题**：sglang server 启动时 verl 先检查新命名包 `sglang_kernel`，不存在时上游
   `assert_pkg_version` 抛的是通用 `Exception`，而 verl 的 fallback 只捕获 `AssertionError`，

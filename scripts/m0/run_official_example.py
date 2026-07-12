@@ -12,6 +12,7 @@ Deviations from the notebook (single-GPU GH200, no wandb yet), each flagged inli
 Everything else (model, data, batch sizes, 5 steps) is unchanged.
 """
 
+import argparse
 import asyncio
 import json
 import os
@@ -113,11 +114,30 @@ def download_assets() -> tuple[str, str, str]:
     return model_path, train_file, test_file
 
 
+def make_smoke_data(train_file: str, test_file: str) -> tuple[str, str]:
+    """Slice 20 train / 8 val rows for the <10min smoke test (PLAN M0)."""
+    import pyarrow.parquet as pq
+
+    smoke_dir = os.path.join(SCRIPT_DIR, "smoke_data")
+    os.makedirs(smoke_dir, exist_ok=True)
+    train_smoke = os.path.join(smoke_dir, "train_20.parquet")
+    test_smoke = os.path.join(smoke_dir, "test_8.parquet")
+    pq.write_table(pq.read_table(train_file)[:20], train_smoke)
+    pq.write_table(pq.read_table(test_file)[:8], test_smoke)
+    return train_smoke, test_smoke
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--smoke", action="store_true", help="20 samples, 1 gradient step, no val")
+    args = parser.parse_args()
+
     os.chdir(SCRIPT_DIR)  # so class_name "sandbox.SandboxTool" and tool_config.json resolve
     ray.init(runtime_env={"env_vars": {"PYTHONPATH": SCRIPT_DIR}, "working_dir": None})
 
     model_path, train_file, test_file = download_assets()
+    if args.smoke:
+        train_file, test_file = make_smoke_data(train_file, test_file)
 
     # --- notebook cell 33: sandbox + tool config ---
     sandbox = Sandbox.remote()
@@ -136,6 +156,18 @@ def main() -> None:
 
     # --- notebook cell 34: hydra config ---
     from hydra import compose, initialize_config_dir
+
+    smoke_overrides = (
+        [
+            "data.train_batch_size=16",
+            "actor_rollout_ref.rollout.n=4",
+            "trainer.val_before_train=False",
+            "trainer.total_training_steps=1",
+            "trainer.experiment_name=smoke_test",
+        ]
+        if args.smoke
+        else []
+    )
 
     verl_config_dir = os.path.join(os.path.dirname(verl.__file__), "trainer/config")
     with initialize_config_dir(config_dir=verl_config_dir, version_base=None):
@@ -171,7 +203,8 @@ def main() -> None:
                 "trainer.logger=['console','tensorboard']",  # [DEV-2]
                 "trainer.project_name=toolcredit-m0",
                 "trainer.experiment_name=" + os.path.basename(model_path),
-            ],
+            ]
+            + smoke_overrides,
         )
 
     # --- notebook cell 35 ---
