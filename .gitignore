@@ -1,0 +1,25 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# experiment artifacts
+wandb/
+checkpoints/
+ckpts/
+outputs/
+*.ckpt
+*.safetensors
+*.bin
+*.pt
+
+# data artifacts (JSONL 数据与预测产物不入库，schema 与生成脚本入库)
+data/**/*.jsonl
+eval/**/*.jsonl
+sft/**/*.jsonl
+
+# misc
+.ipynb_checkpoints/
+*.log
+.DS_Store
