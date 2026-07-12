@@ -2,17 +2,24 @@
 
 ## 当前状态
 
-- M0 进行中。环境全栈已装通（conda `toolcredit`：torch 2.9.1+cu129、verl 0.8.0、
-  sglang 0.5.8，版本与坑见 environment.md）；官方 agent-loop 示例已移植到 `scripts/m0/`；
-  Qwen3-1.7B 与 MATH 数据已在 `~/Qwen`、`~/verl-team`。
-- **阻塞在用户决策**：verl 0.8.0 的 sglang kernel 检查 bug（详见 rl/custom/CHANGES.md），
-  方案 A = 一行补丁（`rl/custom/patches/apply_verl_patches.sh`，已备好未应用），
-  方案 B = 改 vllm rollout。
+- M0 接近完成。环境全栈装通（conda `toolcredit`，版本与全部坑见 environment.md +
+  requirements.txt）；用户批准的一行 verl 补丁已应用（rl/custom/CHANGES.md）。
+- **官方示例验收通过**（run #5，scripts/m0/logs/run_20260712_215334.log）：
+  Qwen3-1.7B + MATH + 沙箱工具，step0 val acc 0.76，5/5 GRPO 步完成，指标健康
+  （entropy ~0.2，KL ~1e-4，~40–52s/步，显存峰值 45GB）。
+- smoke test（scripts/run_smoke_test.sh，20 条 + 1 梯度步 <10min）已启动待验收。
+
+## 已知待观察
+
+- run #5 第 4–5 步之间出现一次 `DataLoader worker killed by signal: Killed`，训练自行恢复
+  跑完。M4 长跑时留意是否复现（怀疑与宿主内存或 dataloader worker 有关，未定位）。
 
 ## 下一步
 
-1. 用户拍板后：应用补丁（或装 vllm）→ tmux 重跑 `scripts/m0/run.sh` → 5 步训练验收
-   → 缩成 20 条 <10 分钟 smoke test → environment.md 收尾 → commit + tag m0。
+1. smoke test 验收（<10 分钟）→ environment.md/README 收尾 → commit + tag m0 →
+   更新 CLAUDE.md 状态行 → M0 完成，向用户汇报并给 M1 计划。
+2. 5090 本地侧 smoke test 由用户自己跑（HANDOFF：复现步骤 = requirements.txt 注释顺序
+   + scripts/run_smoke_test.sh；5090 是 x86+CUDA 12/13 均可，torch 直接 PyPI 装即带 CUDA）。
 
 ## 已知坑
 

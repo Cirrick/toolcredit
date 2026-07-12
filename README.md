@@ -17,7 +17,7 @@
 
 | Milestone | 状态 | 结果 |
 |---|---|---|
-| M0 环境与 smoke test | 未开始 | — |
+| M0 环境与 smoke test | ✅ 服务器侧完成（2026-07-12） | veRL 0.8.0 官方 agent-loop 示例原样跑通（Qwen3-1.7B+MATH+沙箱，val acc 0.76，5/5 GRPO 步）；smoke test（20 条+1 梯度步）约 2 分钟 < 10 分钟预算。5090 本地侧待用户复跑 |
 
 ## 复现
 
