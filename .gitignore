@@ -23,3 +23,6 @@ sft/**/*.jsonl
 .ipynb_checkpoints/
 *.log
 .DS_Store
+
+# read-only reference checkouts
+third_party/
