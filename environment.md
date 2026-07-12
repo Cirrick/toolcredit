@@ -37,6 +37,12 @@ aarch64（torchcodec 在 aarch64 上被官方排除，sgl-kernel 全系列有 AR
 - ~~选 cu130~~ → **sgl-kernel 0.3.21 的 aarch64 wheel 是 CUDA 12 构建**（import 时报
   `libnvrtc.so.12: cannot open shared object file`），与 cu130 torch（带 CUDA 13 运行时库）
   不兼容。已切 **cu129** torch 栈解决。残留的 nvidia-* cu13 包无害，暂不清理。
+- **veRL 0.8.0 漏声明运行时依赖 `cachetools`**（`workers/rollout/llm_server.py` import 失败），
+  已手动补装并写入 requirements.txt。
+- **verl FSDP worker 默认 attn_implementation=flash_attention_2**
+  （`verl/workers/config/model.py:185`），flash-attn 无 aarch64 预编译 wheel。
+  用 `+actor_rollout_ref.model.override_config.attn_implementation=sdpa` 覆盖，先跑通；
+  flash-attn 源码编译（约 30–60 分钟）留作后续优化项。
 - **veRL 0.8.0 移除了旧版 `examples/sglang_multiturn/` 的 GSM8K 现成示例**（Gsm8kTool 已不存在，
   skypilot yaml 里的引用是陈旧的）。官方 multi-turn tool 路径现为 **agent loop**：
   `examples/tutorial/agent_loop_get_started/`（ReAct + 代码沙箱 + MATH 数据 + GRPO 5 步演示），

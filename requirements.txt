@@ -1,0 +1,10 @@
+# GH200/aarch64 安装顺序敏感，务必按 environment.md 的说明操作：
+# 1) torch 必须先从 cu129 index 装（PyPI aarch64 wheel 是 CPU-only；cu130 与 sgl-kernel 冲突）：
+#    pip install torch==2.9.1 torchaudio==2.9.1 torchvision==0.24.1 \
+#        --index-url https://download.pytorch.org/whl/cu129
+# 2) 然后再装本文件：pip install -r requirements.txt
+verl[sglang,math]==0.8.0
+sglang[openai,srt]==0.5.8   # verl 0.8.0 sglang extra 的官方 pin，显式写出
+sgl-kernel==0.3.21          # aarch64 wheel 为 CUDA 12 构建 → torch 用 cu129
+torch==2.9.1
+cachetools                  # verl 0.8.0 漏声明的运行时依赖（llm_server.py 需要）

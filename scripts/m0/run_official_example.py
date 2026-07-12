@@ -7,6 +7,8 @@ Deviations from the notebook (single-GPU GH200, no wandb yet), each flagged inli
   [DEV-1] trainer.n_gpus_per_node: 8 -> 1
   [DEV-2] trainer.logger: drop wandb (console + tensorboard only)
   [DEV-3] rollout_name pinned to "sglang" (notebook leaves it as "???")
+  [DEV-4] attn_implementation=sdpa — no flash-attn aarch64 wheel; verl defaults to
+          flash_attention_2 (verl/workers/config/model.py:185) which crashes without it
 Everything else (model, data, batch sizes, 5 steps) is unchanged.
 """
 
@@ -149,6 +151,7 @@ def main() -> None:
                 "data.max_response_length=1024",
                 "+data.apply_chat_template_kwargs.enable_thinking=False",
                 "actor_rollout_ref.model.path=" + model_path,
+                "+actor_rollout_ref.model.override_config.attn_implementation=sdpa",  # [DEV-4]
                 "actor_rollout_ref.actor.ppo_mini_batch_size=8",
                 "actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=8",
                 "actor_rollout_ref.actor.fsdp_config.param_offload=True",

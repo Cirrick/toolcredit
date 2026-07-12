@@ -2,13 +2,17 @@
 
 ## 当前状态
 
-- 仓库骨架已建立（PLAN §2），CLAUDE.md / LOG.md / environment.md 就绪，首次 commit 完成。
-- Milestone: **M0 未开始**，实施计划已提交用户，等确认。
+- M0 进行中。环境全栈已装通（conda `toolcredit`：torch 2.9.1+cu129、verl 0.8.0、
+  sglang 0.5.8，版本与坑见 environment.md）；官方 agent-loop 示例已移植到 `scripts/m0/`；
+  Qwen3-1.7B 与 MATH 数据已在 `~/Qwen`、`~/verl-team`。
+- **阻塞在用户决策**：verl 0.8.0 的 sglang kernel 检查 bug（详见 rl/custom/CHANGES.md），
+  方案 A = 一行补丁（`rl/custom/patches/apply_verl_patches.sh`，已备好未应用），
+  方案 B = 改 vllm rollout。
 
 ## 下一步
 
-1. 用户确认 M0 计划后：conda 建 py3.12 环境 `toolcredit` → torch aarch64 冒烟 →
-   选定并 pin veRL 版本 → 原样跑官方 GSM8K multiturn tool 示例 → `scripts/run_smoke_test.sh`。
+1. 用户拍板后：应用补丁（或装 vllm）→ tmux 重跑 `scripts/m0/run.sh` → 5 步训练验收
+   → 缩成 20 条 <10 分钟 smoke test → environment.md 收尾 → commit + tag m0。
 
 ## 已知坑
 
