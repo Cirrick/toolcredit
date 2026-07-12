@@ -20,6 +20,8 @@
 4. **代码风格**：函数短、有 type hints；关键张量 shape 在 debug 模式下打印，shape 不符立即 fail。
 5. **节奏**：每个 Milestone 完成即 commit + tag + 更新 README 结果总表一行。
 6. **数据/评测纪律**：训练与评测严格分 split；训练子集必须先过 `data/dedup_check.py` 污染检查。
+7. **计划留痕**：每个 Milestone 一份 `plans/M<N>.md` —— 计划批准时写入原文，
+   执行中记录偏差与决策，验收时写结果表。不得事后追改计划原文。
 
 ## 禁止事项
 
