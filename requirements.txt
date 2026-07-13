@@ -12,3 +12,4 @@ cachetools                  # verl 0.8.0 漏声明的运行时依赖（llm_serve
 #    用上游 GitHub release 的官方 aarch64 wheel（cu13 变体，链接系统 /usr/local/cuda 的
 #    libcudart.so.13，与 cu129 torch 共存已验证）：
 #    pip install https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3+cu13torch2.9cxx11abiTRUE-cp312-cp312-linux_aarch64.whl
+matplotlib==3.11.0 # M1: probe 曲线图

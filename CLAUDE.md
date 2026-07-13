@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-**当前 Milestone: M0 完成（服务器侧）→ M1 待启动 | 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
+**当前 Milestone: M1 完成 → M2 待启动（基座定为 Qwen3-1.7B）| 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
 
 （每个 Milestone 完成后更新本行；会话结束更新 `LOG.md`；交接状态写 `HANDOFF.md`。）
 

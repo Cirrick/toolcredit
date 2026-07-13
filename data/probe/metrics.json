@@ -1,0 +1,113 @@
+{
+  "pool": "/home/jovyan/toolcredit/data/processed/math_train_clean.jsonl",
+  "per_level": 100,
+  "n_samples": 4,
+  "temperature": 0.6,
+  "top_p": 0.95,
+  "max_turns": 4,
+  "tir_style": "bare",
+  "levels": {
+    "1": {
+      "cot": {
+        "n": 400,
+        "pass1": 0.9275,
+        "invalid_rate": 0.0
+      },
+      "tir": {
+        "n": 400,
+        "pass1": 0.8875,
+        "invalid_rate": 0.0,
+        "avg_tool_calls": 0.752,
+        "tool_error_rate": 0.1661,
+        "truncated_rate": 0.015,
+        "no_tool_use_rate": 0.35
+      },
+      "gain": -0.04
+    },
+    "2": {
+      "cot": {
+        "n": 400,
+        "pass1": 0.9275,
+        "invalid_rate": 0.0
+      },
+      "tir": {
+        "n": 400,
+        "pass1": 0.8175,
+        "invalid_rate": 0.0,
+        "avg_tool_calls": 1.02,
+        "tool_error_rate": 0.3015,
+        "truncated_rate": 0.0475,
+        "no_tool_use_rate": 0.255
+      },
+      "gain": -0.11
+    },
+    "3": {
+      "cot": {
+        "n": 400,
+        "pass1": 0.845,
+        "invalid_rate": 0.0
+      },
+      "tir": {
+        "n": 400,
+        "pass1": 0.745,
+        "invalid_rate": 0.0,
+        "avg_tool_calls": 1.12,
+        "tool_error_rate": 0.317,
+        "truncated_rate": 0.0675,
+        "no_tool_use_rate": 0.2275
+      },
+      "gain": -0.1
+    },
+    "4": {
+      "cot": {
+        "n": 400,
+        "pass1": 0.75,
+        "invalid_rate": 0.0
+      },
+      "tir": {
+        "n": 400,
+        "pass1": 0.59,
+        "invalid_rate": 0.0,
+        "avg_tool_calls": 1.238,
+        "tool_error_rate": 0.3919,
+        "truncated_rate": 0.1,
+        "no_tool_use_rate": 0.2675
+      },
+      "gain": -0.16
+    },
+    "5": {
+      "cot": {
+        "n": 400,
+        "pass1": 0.425,
+        "invalid_rate": 0.0
+      },
+      "tir": {
+        "n": 400,
+        "pass1": 0.3325,
+        "invalid_rate": 0.0,
+        "avg_tool_calls": 1.343,
+        "tool_error_rate": 0.4562,
+        "truncated_rate": 0.145,
+        "no_tool_use_rate": 0.27
+      },
+      "gain": -0.0925
+    }
+  },
+  "overall": {
+    "cot": {
+      "n": 2000,
+      "pass1": 0.775,
+      "invalid_rate": 0.0
+    },
+    "tir": {
+      "n": 2000,
+      "pass1": 0.6745,
+      "invalid_rate": 0.0,
+      "avg_tool_calls": 1.095,
+      "tool_error_rate": 0.3444,
+      "truncated_rate": 0.075,
+      "no_tool_use_rate": 0.274
+    },
+    "gain": -0.1005
+  }
+}

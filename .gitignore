@@ -26,3 +26,5 @@ sft/**/*.jsonl
 
 # read-only reference checkouts
 third_party/
+data/**/*.log
+scripts/**/logs/
