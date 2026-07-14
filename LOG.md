@@ -8,3 +8,4 @@
 | 2026-07-13 | M1 | 数据五件套转换（MATH 7496/500/AIME 60/GSM8K 200）+ 13-gram 污染检查（剔 216）；probe 基础设施（sglang server + 异步两臂 + AST auto-print 修复）；全量 500 题 probe | **全 level 零样本工具增益为负** → 触发降级条款报告用户；机制分解证明潜在增益在 L3–5（工具成功时 L5 翻倍）→ 用户确认按 L3–5 选集（5403 条，复检 0 命中）；**M1 验收通过**（tag m1），SFT 后复测记入 M3 |
 | 2026-07-14 | 文档 | 技术报告 living document（M0/M1 章节）；问答日志 reports/qa_log.md + CLAUDE.md 约定 #8 | M2 计划经两轮问答（hacking、reward 设计）后批准 |
 | 2026-07-14 | M2 | 沙箱加固（真禁网 unshare netns + 资源限制 + 恶意 payload 测试）；rewards 三件套（严格/宽松双口径 verifier）；200 例审计（FP 0/FN 0，修复 M1 判分 2 处假阴性并重算）；masking 测试驱动真实 ToolAgentLoop | **M2 验收通过**（tag m2）：56 tests 全绿；verl mask 构建验证无误；M1 指标重算 ≤1pt 结论不变 |
+| 2026-07-14 | M3 | Qwen3-8B 本地蒸馏（10.4k 轨迹→五条件拒绝采样 6056 条，教师 L3-5 acc 0.85/0.76/0.57）；trace 经真实 ToolAgentLoop 重放转 SFT 样本（与 rollout 逐 token 同构）；LoRA SFT 2.5k vs 6k 敏感性对比后取 6k | **M3 验收通过**（tag m3，两项边缘指标经用户确认）：报错率 34%→19%、增益 −0.101→−0.032（L5 转正/L4 平价）、GRPO 方差 L4 0.54；SFT-6k 定为 RL 统一起点；教师覆盖率缺口（L5 41%）交 RL |

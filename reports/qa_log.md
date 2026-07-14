@@ -105,3 +105,33 @@ SFT 要教的是 M1 诊断出的具体行为（hermes tool_call 格式、无状�
 （M3：硬序列 SFT loss；OPD：教师对学生轨迹逐 token 的稠密 reverse-KL）。M3 =
 off-policy 蒸馏 = R1 式 cold start（加拒绝采样过滤 = rejection sampling distillation）；
 OPD（GKD/Qwen3 OPD）训练时教师每步在场。面试高频区分点。
+
+---
+
+## Q7（2026-07-14，M3 教师选型）：API 太贵吗？能用 Claude/Codex 吗？Qwen2.5-Math-7B 准确率有保证吗、够新吗？
+
+**答**：（1）成本重估 ~$10–20（只需 ~6k 原始轨迹），不贵但非必要。
+（2）Claude/Codex 不推荐：Anthropic/OpenAI ToS 限制用输出训练竞争模型（项目要开源+进简历，
+数据合规会被审视；DeepSeek/Qwen 明确允许蒸馏）；且订阅是交互授权，不是批量 API。
+（3）**教师准确率不需要"保证"——rejection sampling 使教师准确率只影响产量、不影响数据
+正确性**（verifier+沙箱三条件把关，错误轨迹进不了 SFT）。
+（4）教师"新旧"不重要：教师不出现在最终产物里，只需"任务上强 + 格式可控"。格式维度上
+Qwen3-8B（hermes 原生，零转换）优于 Qwen2.5-Math-7B（TIR 是代码块约定，需转换层）——
+M1 的教训就是格式细节决定成败。**决策：本地 Qwen3-8B**，产量不足时用 Qwen2.5-Math-7B
+补 L5（执行中小调整）。
+
+---
+
+## Q8（2026-07-14，M3 验收）：教师模型表现如何？能取得高分吗？
+
+**答**：Qwen3-8B（非 thinking、bare TIR、temp 0.7）在训练池上：L3 85.4% / L4 76.3% /
+L5 56.9%（整体 71.0%），比学生零样本 TIR 高 11–24pt——有足够教学落差但不是学霸
+（thinking 模式会高很多，但轨迹与非 thinking 学生格式不符，弃用）。关键区分：
+**教师准确率影响的是覆盖率而非质量**——质量由拒绝采样兜底（入选轨迹 100% 验证正确），
+但 L5 有 41% 题目教师产不出一条合格轨迹 → SFT 数据缺席最难的题（拒绝采样的难度偏置）。
+这解释了 SFT 后增益收窄却未完全转正的另一半；缺口天然由 M4 的 on-policy RL 接手
+（训练池含全部题目，模型自己探索，不受教师上限约束）——"SFT 教格式、RL 提能力"的
+教科书分工。抬教师上限（专家模型补 L5 / API / thinking 模式）收益不划算，未采纳。
+
+**证据**：sft/data/gen/gen_stats.json、qa_log 本条内表格的计算脚本见会话记录、
+reports/01_tool_gain.md 附录。

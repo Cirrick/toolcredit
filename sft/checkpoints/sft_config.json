@@ -1,0 +1,22 @@
+{
+  "base_model": "/home/jovyan/Qwen/Qwen3-1.7B",
+  "lora_r": 32,
+  "lora_alpha": 64,
+  "lora_dropout": 0.05,
+  "target_modules": [
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj"
+  ],
+  "epochs": 2.0,
+  "lr": 0.0001,
+  "warmup_ratio": 0.03,
+  "per_device_batch": 4,
+  "grad_accum": 8,
+  "max_len": 4096,
+  "seed": 42
+}

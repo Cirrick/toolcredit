@@ -1,0 +1,79 @@
+{
+  "pool": "sft/data/heldout_200.jsonl",
+  "per_level": 0,
+  "n_samples": 1,
+  "temperature": 0.0,
+  "top_p": 0.95,
+  "max_turns": 4,
+  "tir_style": "bare",
+  "levels": {
+    "3": {
+      "cot": {
+        "n": 58,
+        "pass1": 0.7241,
+        "invalid_rate": 0.0
+      },
+      "tir": {
+        "n": 58,
+        "pass1": 0.6379,
+        "invalid_rate": 0.0,
+        "avg_tool_calls": 1.379,
+        "tool_error_rate": 0.1875,
+        "truncated_rate": 0.069,
+        "no_tool_use_rate": 0.069
+      },
+      "gain": -0.0862
+    },
+    "4": {
+      "cot": {
+        "n": 61,
+        "pass1": 0.7869,
+        "invalid_rate": 0.0
+      },
+      "tir": {
+        "n": 61,
+        "pass1": 0.7213,
+        "invalid_rate": 0.0,
+        "avg_tool_calls": 1.131,
+        "tool_error_rate": 0.087,
+        "truncated_rate": 0.0164,
+        "no_tool_use_rate": 0.082
+      },
+      "gain": -0.0656
+    },
+    "5": {
+      "cot": {
+        "n": 81,
+        "pass1": 0.3457,
+        "invalid_rate": 0.0
+      },
+      "tir": {
+        "n": 81,
+        "pass1": 0.2963,
+        "invalid_rate": 0.0,
+        "avg_tool_calls": 1.272,
+        "tool_error_rate": 0.2039,
+        "truncated_rate": 0.0741,
+        "no_tool_use_rate": 0.1605
+      },
+      "gain": -0.0494
+    }
+  },
+  "overall": {
+    "cot": {
+      "n": 200,
+      "pass1": 0.59,
+      "invalid_rate": 0.0
+    },
+    "tir": {
+      "n": 200,
+      "pass1": 0.525,
+      "invalid_rate": 0.0,
+      "avg_tool_calls": 1.26,
+      "tool_error_rate": 0.1667,
+      "truncated_rate": 0.055,
+      "no_tool_use_rate": 0.11
+    },
+    "gain": -0.065
+  }
+}

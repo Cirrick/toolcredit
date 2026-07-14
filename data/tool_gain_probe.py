@@ -241,7 +241,7 @@ def score_record(record: dict[str, Any]) -> dict[str, Any]:
 
 def score_and_report(args: argparse.Namespace) -> None:
     metrics: dict[str, Any] = {
-        "pool": TRAIN_CLEAN, "per_level": args.per_level, "n_samples": args.n_samples,
+        "pool": args.pool, "per_level": args.per_level, "n_samples": args.n_samples,
         "temperature": args.temperature, "top_p": TOP_P, "max_turns": MAX_TURNS,
         "tir_style": args.tir_style, "levels": {}, "overall": {},
     }
@@ -305,6 +305,8 @@ def main() -> None:
                         help="bare = match M4 training setup (no system prompt); "
                              "system = instruction prompt; fewshot = 1 worked example as history")
     parser.add_argument("--score-only", action="store_true")
+    parser.add_argument("--pool", default=TRAIN_CLEAN,
+                        help="questions JSONL; with --per-level 0 all rows are used (e.g. held-out eval)")
     args = parser.parse_args()
     if args.out_dir is None:
         args.out_dir = os.path.join(DATA_DIR, "probe_dryrun" if args.limit else "probe")
@@ -316,7 +318,7 @@ def main() -> None:
         handlers=[logging.StreamHandler(), logging.FileHandler(os.path.join(args.out_dir, "probe.log"))],
     )
 
-    questions = sample_questions(TRAIN_CLEAN, args.per_level)
+    questions = read_jsonl(args.pool) if args.per_level == 0 else sample_questions(args.pool, args.per_level)
     if args.limit:
         rng = random.Random(0)
         questions = rng.sample(questions, args.limit)

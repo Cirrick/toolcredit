@@ -1,0 +1,31 @@
+{
+  "teacher": "Qwen3-8B",
+  "temperature": 0.7,
+  "n_samples": 2,
+  "raw": 10406,
+  "kept": 6056,
+  "yield": 0.582,
+  "filter_reasons": {
+    "no_successful_tool_call": 2083,
+    "wrong_answer": 1884,
+    "truncated": 374,
+    "too_long": 8,
+    "bad_tool_args": 1,
+    "kept_before_subsample": 6056,
+    "kept": 6056
+  },
+  "kept_per_level": {
+    "3": 2128,
+    "4": 1995,
+    "5": 1933
+  },
+  "raw_per_level": {
+    "3": 3000,
+    "4": 3186,
+    "5": 4220
+  },
+  "kept_with_error_recovery": 797,
+  "questions_covered": 3716,
+  "avg_response_tokens": 580.2,
+  "avg_tool_calls": 1.28
+}
