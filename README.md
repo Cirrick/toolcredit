@@ -4,7 +4,8 @@
 （标准 GRPO），与引入轮级（turn-level）信用分配相比，对训练效率、最终性能和模型行为的影响。
 
 完整实施文档见 [PLAN.md](PLAN.md)；项目约定见 [CLAUDE.md](CLAUDE.md)；环境记录见
-[environment.md](environment.md)。
+[environment.md](environment.md)；**逐 Milestone 的动机/方法/结果叙事见
+[reports/technical_report.md](reports/technical_report.md)**（living document，面试复盘入口）。
 
 ## 非目标（防 scope creep）
 
