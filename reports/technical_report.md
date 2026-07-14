@@ -13,7 +13,7 @@
 |---|---|---|---|
 | M0 | 环境打通 + smoke test | ✅ 2026-07-12 | GH200/aarch64 无 docker 平台上 veRL 0.8.0 multi-turn tool 全栈跑通；官方示例 val 0.76，smoke test 2 分钟 |
 | M1 | 数据 + 工具增益预实验 | ✅ 2026-07-13 | **零样本工具增益全难度层为负（−10pt）**；机制分解证明潜在增益在 L3–5 真实存在（工具成功时 L5 翻倍）→ 负增益源于"不会用工具"而非"工具没用"，SFT 冷启动必要性获得定量证据；训练集定为 MATH L3–5 共 5403 条 |
-| M2 | 沙箱 / verifier / masking 测试 | ⬜ | |
+| M2 | 沙箱 / verifier / masking 测试 | ✅ 2026-07-14 | reward 通路三地基全绿（56 tests）：沙箱含真禁网（unshare netns）；verifier 200 例审计假阳/假阴 0 检出，顺带修复 M1 判分 2 处假阴性；verl mask 构建验证无误 |
 | M3 | SFT 冷启动 | ⬜ | |
 | M4 | E3 GRPO baseline | ⬜ | |
 | M5 | E6 no-mask / E4 shaping | ⬜ | |
@@ -214,14 +214,61 @@ RL 训练数据的质量决定梯度信号的质量，具体到 GRPO + 工具调
 
 ---
 
-## 4. 路线图与当前状态
+## 4. M2 — 沙箱加固、verifier 审计与 loss masking 测试（2026-07-14，tag `m2`）
 
-**当前**：M1 完成，M2 待启动（计划已提交）。基座 Qwen3-1.7B，训练集 MATH L3–5 5403 条，
-评测集四件套就绪，全部管线依赖已 pin 死并验证。
+### 4.1 动机：reward 通路的三类隐蔽失败
 
-**接下来**：M2 把 reward 通路的三个可靠性地基打牢（沙箱加固、verifier 审计、loss masking
-单元测试）→ M3 SFT 冷启动（含工具增益复测）→ M4 E3 GRPO baseline 训稳（全项目最大时间
-预算，4 天）→ M5/M6 消融与核心对照（E6 → E4 → E5）→ M7 全量评测与四份报告。
+RL 里最贵的 bug 不是训练崩（看得见），而是**训练"成功"但优化了错误目标**。M2 针对三个
+入口各修一道防线：沙箱被失控代码搞挂（训练中断）、verifier 误判（reward 直接错，假阳性
+= hacking 入口）、loss mask 错误（模型学复读环境输出——E6 将故意展示这种崩法）。
+
+### 4.2 沙箱（`env/sandbox.py` + 20 tests）
+
+子进程执行 + 全进程组超时清杀 + 资源限制（内存 1GB / 文件 16MB / CPU / 进程数动态上限）
++ 一次性 tmp 工作目录 + **真禁网**——预判"无 root 的 pod 上 user namespace 可能被禁"，
+实测 `unshare --map-root-user -n` 可用，网络隔离以 fresh netns 实现并有测试。恶意 payload
+测试全过：fork 炸弹、死循环、内存炸弹、删文件企图、超长输出。**诚实记录的差距**：同 uid
+绝对路径的文件删改挡不住（无 mount namespace remount 权限），用一个"钉住现状"的测试
+把该差距文档化——工业级方案是 container/gVisor，面试可以讲清楚这一档差在哪。
+
+### 4.3 Verifier（`rewards/` + 30 tests + 200 例人工审计）
+
+判分链：归一化字符串精确（确定阳性，快）→ math-verify（主路径）→ sympy 规范化（fallback）。
+**双口径设计**：训练 reward 严格只认 `\boxed{}`（防"多写候选数字撞答案"的 hacking），
+评测宽松提取。复合奖励 `1.0·对错 + 0.1·格式 (+E4 shaping 项，默认 0)`，默认保持 sparse
+——这是 E5 对照的实验前提（见 qa_log Q4）。
+
+**审计**（200 对真实 probe 输出 × 人工核对，reports/02_appendix_verifier_audit.md）：
+假阳性 **0/200**、假阴性 **0/200**；严格口径的"答案对但没装箱"代价量化为 4/200；
+审计顺带抓出 **M1 probe 判分的 2 处假阴性**（`20\%` 类 gold），判分统一到新 verifier 后
+全量重算 M1 指标——各 level 变化 ≤1pt、结论不变。这个"审计发现上游判分 bug 并回灌修复"
+的闭环本身是质量流程的最好证据。
+
+### 4.4 Loss masking 单元测试（`rl/custom/test_masking.py`，本项目最重要的单元测试）
+
+定位 verl 0.8.0 mask 构建：`ToolAgentLoop` 状态机中生成段 `+=[1]*n`、工具返回段增量
+tokenize 后 `+=[0]*n`。测试用真 Qwen3 tokenizer + 真 hermes parser + 真 FunctionTool，
+只 mock LLM server（脚本化 2 次工具调用轨迹），驱动**真实 verl 状态机**断言：模型 token
+mask 全 1、工具返回 token 全 0、prompt 完全在 response 之外、截断时对齐、padding 归零。
+结论：verl 的 mask 构建无误（不需要动框架）。附带发现一个易误用的契约：verl 用
+`tokenizer.pad` 填充 mask 列表（填入的是 pad_token_id≠0！），靠乘 response attention mask
+归零——测试把这个契约钉住了。
+
+### 4.5 面试叙事要点
+
+- "假阳性和假阴性哪个危害大"有自己的审计数据支撑（0 检出 + 修复案例 + rule-of-three 上界）；
+- masking 测试的方法论：不改框架、mock 到最小面（只有 LLM server 是假的）、断言打在
+  token/mask 对齐这个最终不变量上；
+- 沙箱的"能挡什么/挡不住什么"分界清晰且各有测试——包括故意钉住已知差距的测试。
+
+## 5. 路线图与当前状态
+
+**当前**：M2 完成，M3 待启动。基座 Qwen3-1.7B，训练集 MATH L3–5 5403 条，评测集四件套
+就绪；沙箱/verifier/masking 三地基 56 tests 全绿，全部管线依赖已 pin 死并验证。
+
+**接下来**：M3 SFT 冷启动（蒸馏轨迹 + rejection sampling + LoRA SFT；验收含工具增益复测，
+验证 M1"SFT 解锁工具增益"的判读）→ M4 E3 GRPO baseline 训稳（全项目最大时间预算，4 天）
+→ M5/M6 消融与核心对照（E6 → E4 → E5）→ M7 全量评测与四份报告。
 
 **风险登记簿**（活跃项）：
 - DataLoader worker 在训练收尾阶段被杀（M0 两次，均自愈）——M4 长跑监控；

@@ -17,13 +17,11 @@ Usage:
 """
 
 import argparse
-import ast
 import asyncio
 import json
 import logging
 import os
 import random
-import re
 import sys
 from collections import defaultdict
 from typing import Any
@@ -31,7 +29,7 @@ from typing import Any
 import openai
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from env.sandbox import run_python  # noqa: E402
+from env.sandbox import prepare_tool_code, run_python  # noqa: E402
 
 DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 TRAIN_CLEAN = os.path.join(DATA_DIR, "processed", "math_train_clean.jsonl")
@@ -85,7 +83,6 @@ CODE_INTERPRETER_TOOL = {
 MAX_TURNS = 4  # tool-call rounds per trajectory (PLAN §3.2)
 TOP_P = 0.95
 MAX_TOKENS = 2048
-CODE_FENCE_RE = re.compile(r"```(?:python|py)?\s*(.*?)```", re.DOTALL)
 
 logger = logging.getLogger("probe")
 
@@ -107,32 +104,8 @@ def sample_questions(pool_path: str, per_level: int, seed: int = 42) -> list[dic
     return picked
 
 
-def preprocess_code(raw: str) -> str:
-    """Fence strip + REPL-style auto-print.
-
-    Robust version of the M0 SandboxTool heuristic: only wraps the last statement
-    in print() when it is a bare expression (the official line-based version breaks
-    on indented/assignment last lines, producing SyntaxErrors).
-    """
-    matches = CODE_FENCE_RE.findall(raw)
-    code = matches[0].strip() if matches else raw
-    try:
-        tree = ast.parse(code)
-    except SyntaxError:
-        return code  # let the sandbox report the error verbatim
-    last = tree.body[-1] if tree.body else None
-    already_print = (
-        isinstance(last, ast.Expr)
-        and isinstance(last.value, ast.Call)
-        and getattr(last.value.func, "id", "") == "print"
-    )
-    if isinstance(last, ast.Expr) and not already_print:
-        tree.body[-1] = ast.Expr(
-            ast.Call(func=ast.Name(id="print", ctx=ast.Load()), args=[last.value], keywords=[])
-        )
-        ast.fix_missing_locations(tree)
-        return ast.unparse(tree)
-    return code
+# prepare_tool_code (fence strip + AST auto-print) moved to env/sandbox.py in M2
+# as the single source for all tool wrappers.
 
 
 async def run_conversation(
@@ -180,7 +153,7 @@ async def run_conversation(
             n_tool_calls += 1
             try:
                 code = json.loads(tc.function.arguments)["code"]
-                result = await asyncio.to_thread(run_python, preprocess_code(code))
+                result = await asyncio.to_thread(run_python, prepare_tool_code(code))
                 output = result["stdout"] + result["stderr"]
                 if result["status"] != "ok":
                     n_tool_errors += 1
@@ -251,29 +224,22 @@ def traj_path(out_dir: str, arm: str) -> str:
     return os.path.join(out_dir, f"trajectories_{arm}.jsonl")
 
 
-def score_record(record: dict[str, Any], parse: Any, verify: Any) -> dict[str, Any]:
-    """Score one trajectory with math-verify; failures are logged, never silent (禁止事项 #2)."""
+def score_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Score one trajectory with rewards.verifier (lenient regime, M2 unified scoring).
+
+    Failures are logged inside the verifier and surface as invalid (禁止事项 #2)."""
+    from rewards.verifier import verify_answer
+
     if record["truncated"]:  # PLAN §3.2: truncation forces reward 0; not an extraction failure
         return {**record, "correct": False, "invalid": False}
     final_text = record["messages"][-1]["content"] if record["messages"] else ""
-    correct, invalid = False, False
-    try:
-        gold = parse("\\boxed{" + record["gold"] + "}")
-        pred = parse(final_text)
-        if not pred:
-            invalid = True
-            logger.warning("no answer extracted: id=%s arm=%s k=%d", record["id"], record["arm"], record["sample_idx"])
-        else:
-            correct = bool(verify(gold, pred))
-    except Exception as e:
-        invalid = True
-        logger.warning("verify error id=%s arm=%s k=%d: %r", record["id"], record["arm"], record["sample_idx"], e)
-    return {**record, "correct": correct, "invalid": invalid}
+    verdict = verify_answer(final_text, record["gold"], strict_boxed=False)
+    if verdict["invalid"]:
+        logger.warning("verify invalid id=%s arm=%s k=%d", record["id"], record["arm"], record["sample_idx"])
+    return {**record, "correct": verdict["correct"], "invalid": verdict["invalid"]}
 
 
 def score_and_report(args: argparse.Namespace) -> None:
-    from math_verify import parse, verify
-
     metrics: dict[str, Any] = {
         "pool": TRAIN_CLEAN, "per_level": args.per_level, "n_samples": args.n_samples,
         "temperature": args.temperature, "top_p": TOP_P, "max_turns": MAX_TURNS,
@@ -282,7 +248,7 @@ def score_and_report(args: argparse.Namespace) -> None:
     scored_by_arm: dict[str, list[dict[str, Any]]] = {}
     for arm in args.arms:
         records = read_jsonl(traj_path(args.out_dir, arm))
-        scored = [score_record(r, parse, verify) for r in records]
+        scored = [score_record(r) for r in records]
         with open(traj_path(args.out_dir, arm), "w", encoding="utf-8") as f:
             for r in scored:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")

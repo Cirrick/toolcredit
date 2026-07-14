@@ -2,29 +2,32 @@
 
 ## 当前状态
 
-- **M1 验收通过**（2026-07-13，tag `m1`）：数据五件套 + 污染检查 + 工具增益预实验全部完成。
-- **基座模型已定：Qwen3-1.7B**（与用户讨论确认，理由见 plans/M1.md Context）。
-- 核心发现（reports/01_tool_gain.md）：零样本工具增益**全 level 为负**（总 −10pt），
-  机制分解显示工具成功执行时 L3–5 增益 +8~+23pt（L5 翻倍）——负增益源于工具执行不可靠
-  （报错率 17%→46%、截断循环），是 M3 SFT 冷启动必要性的定量证据。
-- 训练子集：`data/processed/train_subset.jsonl`（L3–5 共 5403 条，污染复检 0 命中）。
-- 评测集就绪：math500 / aime24 / aime25 / gsm8k200（`data/processed/`，统一 schema）。
+- **M2 验收通过**（2026-07-14，tag `m2`）：沙箱/verifier/masking 三地基完成，56 tests 全绿
+  （`pytest env/ rewards/ rl/custom/`）。
+- 沙箱 `env/sandbox.py`：真禁网（unshare netns，import 时探测）+ 资源限制；已知差距
+  （同 uid 绝对路径删改）有测试钉住。`prepare_tool_code`（AST auto-print）在此处，
+  是所有工具包装的单一来源。
+- verifier `rewards/verifier.py`：**训练严格 boxed / 评测宽松**双口径；审计假阳/假阴
+  0/200 检出（reports/02_appendix_verifier_audit.md）；M1 probe 判分已统一到此并重算
+  （结论不变）。复合奖励默认 sparse（λ 全 0，E4 才开）。
+- masking：verl 0.8.0 `ToolAgentLoop` mask 构建验证无误；测试基建
+  （FakeServer + `__new__` 组装真实状态机）可复用于 M4 前的任何 rollout 行为验证。
 
-## 下一步（M2，PLAN §6）
+## 下一步（M3，PLAN §7）——计划待用户批准
 
-1. `env/sandbox.py` 加固（禁网、内存限制、禁写）+ `test_sandbox.py` 全套测试
-   （现为 M1 最小版：子进程 + 超时 + 2k 截断；接口 `run_python` 保持不变）。
-2. `rewards/verifier.py`（math-verify 封装 + fallback 链）+ 200 例人工审计。
-3. loss masking 单元测试：目标是 verl 0.8.0 agent-loop 的 delta-based tokenization
-   （docs/sglang_multiturn/multiturn.rst）。
-4. M2 注意沿用 M1 的 AST 版 auto-print（`data/tool_gain_probe.py:preprocess_code`），
-   官方 SandboxTool 的行版启发式有已知缺陷（见 plans/M1.md 偏差表）。
+1. 蒸馏轨迹 `sft/gen_trajectories.py`：教师优先 API（DeepSeek/Qwen API），备选本地
+   Qwen2.5-Math-7B TIR；工具格式与我们完全一致（hermes + code_interpreter），沙箱真实执行；
+   rejection sampling 三条件（verifier 判对 + ≥1 次成功工具调用 + 未截断），目标 1.5k–2.5k 条。
+2. LoRA SFT（r=32, alpha=64，1–2 epoch），工具返回 token 不计 loss。
+3. 验收：held-out 200 题工具格式成功率 >90%、pass@1 显著高于零样本；
+   **加测：SFT 后 CoT vs TIR 复测**（M1 判读的验证，probe 脚本 `--tir-style bare` 直接复用）。
+4. 教师 API key 需要用户提供（或确认走本地教师路线）。
 
 ## 记账
 
-- M3 验收新增一项：SFT 后复测 CoT vs TIR（验证"SFT 解锁工具增益"判读），
-  probe 脚本可直接复用（`--tir-style bare` 指向 SFT 后模型的 server 即可）。
-- probe 基础设施可复用：`scripts/m1/serve_sglang.sh` + `data/tool_gain_probe.py`
-  （断点续跑、--score-only 重判分）。
-- M0 遗留观察项不变：DataLoader worker 收尾阶段被杀（自愈），M4 长跑监控。
+- 用户问答持续记录到 `reports/qa_log.md`（CLAUDE.md 约定 #8）；技术报告
+  `reports/technical_report.md` 每 Milestone 更新章节。
+- M0 遗留：DataLoader worker 收尾阶段被杀（自愈），M4 长跑监控；NFS checkpoint IO 未实测。
 - 5090 本地侧 smoke test 仍待用户复跑（M0 项）。
+- 存疑项待用户抽检：verifier 对单位省略等价（`75^\circ`≡`75`）按判对处理
+  （reports/02_appendix_verifier_audit.md 存疑节）。

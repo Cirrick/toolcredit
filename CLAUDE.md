@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-**当前 Milestone: M1 完成 → M2 待启动（基座定为 Qwen3-1.7B）| 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
+**当前 Milestone: M2 完成 → M3 待启动（基座 Qwen3-1.7B，SFT 冷启动）| 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
 
 （每个 Milestone 完成后更新本行；会话结束更新 `LOG.md`；交接状态写 `HANDOFF.md`。）
 
@@ -22,6 +22,8 @@
 6. **数据/评测纪律**：训练与评测严格分 split；训练子集必须先过 `data/dedup_check.py` 污染检查。
 7. **计划留痕**：每个 Milestone 一份 `plans/M<N>.md` —— 计划批准时写入原文，
    执行中记录偏差与决策，验收时写结果表。不得事后追改计划原文。
+8. **问答留痕**：用户（陈冀超）提出的问题及解答，凡有沉淀价值（概念澄清、设计决策、
+   面试素材）即追加到 `reports/qa_log.md`（日期 + 场景 + Q + 浓缩版 A + 证据指针）。
 
 ## 禁止事项
 

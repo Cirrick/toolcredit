@@ -53,3 +53,10 @@ aarch64（torchcodec 在 aarch64 上被官方排除，sgl-kernel 全系列有 AR
   `examples/tutorial/agent_loop_get_started/`（ReAct + 代码沙箱 + MATH 数据 + GRPO 5 步演示），
   M0 以它为"官方示例"。loss mask 采用 delta-based tokenization
   （docs/sglang_multiturn/multiturn.rst），M2 的 masking 单元测试以此为目标。
+
+## 沙箱隔离能力（M2 实测，2026-07-14）
+
+- **无特权 user namespace 可用**：`unshare --map-root-user -n` 成功 → 沙箱禁网走 fresh
+  netns（`env/sandbox.py` import 时探测，不可用则自动降级为无网络隔离并在测试中 skip）。
+- 无 mount namespace remount 权限 → 同 uid 绝对路径文件删改挡不住（已知差距，
+  `test_user_file_delete_is_a_documented_gap` 钉住现状；工业方案 container/gVisor）。

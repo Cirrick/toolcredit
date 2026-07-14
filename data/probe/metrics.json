@@ -10,12 +10,12 @@
     "1": {
       "cot": {
         "n": 400,
-        "pass1": 0.9275,
+        "pass1": 0.9375,
         "invalid_rate": 0.0
       },
       "tir": {
         "n": 400,
-        "pass1": 0.8875,
+        "pass1": 0.8975,
         "invalid_rate": 0.0,
         "avg_tool_calls": 0.752,
         "tool_error_rate": 0.1661,
@@ -66,14 +66,14 @@
       },
       "tir": {
         "n": 400,
-        "pass1": 0.59,
+        "pass1": 0.5875,
         "invalid_rate": 0.0,
         "avg_tool_calls": 1.238,
         "tool_error_rate": 0.3919,
         "truncated_rate": 0.1,
         "no_tool_use_rate": 0.2675
       },
-      "gain": -0.16
+      "gain": -0.1625
     },
     "5": {
       "cot": {
@@ -96,18 +96,18 @@
   "overall": {
     "cot": {
       "n": 2000,
-      "pass1": 0.775,
+      "pass1": 0.777,
       "invalid_rate": 0.0
     },
     "tir": {
       "n": 2000,
-      "pass1": 0.6745,
+      "pass1": 0.676,
       "invalid_rate": 0.0,
       "avg_tool_calls": 1.095,
       "tool_error_rate": 0.3444,
       "truncated_rate": 0.075,
       "no_tool_use_rate": 0.274
     },
-    "gain": -0.1005
+    "gain": -0.101
   }
 }
