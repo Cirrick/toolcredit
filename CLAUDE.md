@@ -18,7 +18,8 @@
 3. **先原样跑通，再改**：veRL 官方 multi-turn tool 示例原样跑通之后才允许任何定制；
    多轮交互的标记格式直接采用官方示例，不自己发明。
 4. **代码风格**：函数短、有 type hints；关键张量 shape 在 debug 模式下打印，shape 不符立即 fail。
-5. **节奏**：每个 Milestone 完成即 commit + tag + 更新 README 结果总表一行。
+5. **节奏**：每个 Milestone 完成即 commit + tag + 更新 README 结果总表一行 +
+   更新 `reports/technical_report.md` 对应章节（动机/方法/结果/面试叙事，living document）。
 6. **数据/评测纪律**：训练与评测严格分 split；训练子集必须先过 `data/dedup_check.py` 污染检查。
 7. **计划留痕**：每个 Milestone 一份 `plans/M<N>.md` —— 计划批准时写入原文，
    执行中记录偏差与决策，验收时写结果表。不得事后追改计划原文。
