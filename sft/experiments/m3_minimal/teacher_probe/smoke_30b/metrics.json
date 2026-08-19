@@ -1,0 +1,33 @@
+{
+  "pool": "sft/experiments/m3_minimal/teacher_probe/subset.jsonl",
+  "per_level": 0,
+  "n_samples": 1,
+  "temperature": 0.7,
+  "top_p": 0.95,
+  "max_turns": 4,
+  "tir_style": "bare",
+  "levels": {
+    "4": {
+      "tir": {
+        "n": 1,
+        "pass1": 0.0,
+        "invalid_rate": 0.0,
+        "avg_tool_calls": 0.0,
+        "tool_error_rate": 0.0,
+        "truncated_rate": 0.0,
+        "no_tool_use_rate": 1.0
+      }
+    }
+  },
+  "overall": {
+    "tir": {
+      "n": 1,
+      "pass1": 0.0,
+      "invalid_rate": 0.0,
+      "avg_tool_calls": 0.0,
+      "tool_error_rate": 0.0,
+      "truncated_rate": 0.0,
+      "no_tool_use_rate": 1.0
+    }
+  }
+}

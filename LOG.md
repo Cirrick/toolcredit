@@ -9,3 +9,4 @@
 | 2026-07-14 | 文档 | 技术报告 living document（M0/M1 章节）；问答日志 reports/qa_log.md + CLAUDE.md 约定 #8 | M2 计划经两轮问答（hacking、reward 设计）后批准 |
 | 2026-07-14 | M2 | 沙箱加固（真禁网 unshare netns + 资源限制 + 恶意 payload 测试）；rewards 三件套（严格/宽松双口径 verifier）；200 例审计（FP 0/FN 0，修复 M1 判分 2 处假阴性并重算）；masking 测试驱动真实 ToolAgentLoop | **M2 验收通过**（tag m2）：56 tests 全绿；verl mask 构建验证无误；M1 指标重算 ≤1pt 结论不变 |
 | 2026-07-14 | M3 | Qwen3-8B 本地蒸馏（10.4k 轨迹→五条件拒绝采样 6056 条，教师 L3-5 acc 0.85/0.76/0.57）；trace 经真实 ToolAgentLoop 重放转 SFT 样本（与 rollout 逐 token 同构）；LoRA SFT 2.5k vs 6k 敏感性对比后取 6k | **M3 验收通过**（tag m3，两项边缘指标经用户确认）：报错率 34%→19%、增益 −0.101→−0.032（L5 转正/L4 平价）、GRPO 方差 L4 0.54；SFT-6k 定为 RL 统一起点；教师覆盖率缺口（L5 41%）交 RL |
+| 2026-08-19 | M3 最小复核 | 固定 200 题 probe 比较 8B/30B teacher；同 6056 条数据完成一次 full-parameter SFT，并在 held-out 200 上按 LoRA 同协议完成 CoT/TIR 各 800 条评测 | 30B yield 52% vs 53%、L5 覆盖 63% vs 65%，拒绝全量生成；full SFT TIR/CoT 0.5188/0.5900，但工具错误/弃用 0.2654/0.1150，拒绝替换 LoRA；M4 起点不变 |

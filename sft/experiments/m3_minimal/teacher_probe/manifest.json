@@ -1,0 +1,18 @@
+{
+  "seed": 20260819,
+  "pool": "sft/data/sft_pool.jsonl",
+  "baseline_raw": "sft/data/gen/raw_traces.jsonl",
+  "level_quotas": {
+    "3": 50,
+    "4": 50,
+    "5": 100
+  },
+  "n_questions": 200,
+  "n_samples": 2,
+  "decision_thresholds": {
+    "min_yield_delta": 0.05,
+    "min_l5_coverage_delta": 0.1,
+    "max_tool_error_delta": 0.02,
+    "max_malformed_call_delta": 0.01
+  }
+}

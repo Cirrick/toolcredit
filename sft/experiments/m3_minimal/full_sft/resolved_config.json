@@ -1,0 +1,14 @@
+{
+  "base_model": "/home/jovyan/Qwen/Qwen3-1.7B",
+  "traces_path": "/home/jovyan/toolcredit/sft/data/sft_traces.jsonl",
+  "training_mode": "full_parameter",
+  "epochs": 2.0,
+  "lr": 1e-05,
+  "warmup_ratio": 0.03,
+  "per_device_batch": 4,
+  "grad_accum": 8,
+  "effective_batch": 32,
+  "max_len": 4096,
+  "precision": "bf16",
+  "seed": 42
+}

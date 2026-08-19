@@ -1,0 +1,44 @@
+{
+  "teacher": "Qwen3-30B-A3B-Instruct-2507",
+  "raw": 400,
+  "kept": 208,
+  "effective_yield": 0.52,
+  "question_coverage": 0.69,
+  "questions_covered": 138,
+  "tool_error_rate": 0.103,
+  "malformed_tool_call_rate": 0.0,
+  "malformed_trajectory_rate": 0.0,
+  "filter_reasons": {
+    "no_successful_tool_call": 126,
+    "wrong_answer": 57,
+    "truncated": 8,
+    "too_long": 1
+  },
+  "avg_response_tokens_kept": 706.0,
+  "levels": {
+    "3": {
+      "questions": 50,
+      "raw": 100,
+      "kept": 63,
+      "effective_yield": 0.63,
+      "questions_covered": 37,
+      "question_coverage": 0.74
+    },
+    "4": {
+      "questions": 50,
+      "raw": 100,
+      "kept": 56,
+      "effective_yield": 0.56,
+      "questions_covered": 38,
+      "question_coverage": 0.76
+    },
+    "5": {
+      "questions": 100,
+      "raw": 200,
+      "kept": 89,
+      "effective_yield": 0.445,
+      "questions_covered": 63,
+      "question_coverage": 0.63
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "protocol": {
+    "pool": "sft/data/heldout_200.jsonl",
+    "questions": 200,
+    "samples_per_question": 4,
+    "temperature": 0.6,
+    "top_p": 0.95,
+    "max_tool_turns": 4,
+    "tir_style": "bare"
+  },
+  "lora_sft": {
+    "checkpoint": "sft/checkpoints/qwen3-1.7b-sft",
+    "tir_pass1": 0.51,
+    "cot_pass1": 0.5725,
+    "tool_error_rate": 0.2013,
+    "tool_abandon_rate": 0.105
+  },
+  "full_sft": {
+    "checkpoint": "sft/experiments/m3_minimal/full_sft/checkpoint",
+    "tir_pass1": 0.5188,
+    "cot_pass1": 0.59,
+    "tool_error_rate": 0.2654,
+    "tool_abandon_rate": 0.115
+  },
+  "deltas_full_minus_lora": {
+    "tir_pass1": 0.0088,
+    "cot_pass1": 0.0175,
+    "tool_error_rate": 0.0641,
+    "tool_abandon_rate": 0.01
+  },
+  "worth_switching_to_full_sft": false,
+  "recommended_checkpoint": "sft/checkpoints/qwen3-1.7b-sft"
+}
