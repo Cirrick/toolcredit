@@ -135,3 +135,65 @@ L5 56.9%（整体 71.0%），比学生零样本 TIR 高 11–24pt——有足够
 
 **证据**：sft/data/gen/gen_stats.json、qa_log 本条内表格的计算脚本见会话记录、
 reports/01_tool_gain.md 附录。
+
+---
+
+## Q9（2026-08-19，M3 最小复核）：为什么 30B teacher 和 Full SFT 没有明显更好？这合理吗？
+
+**答**：先区分两个实验：30B 只作为**轨迹生成教师**，学生始终是 Qwen3-1.7B；Full SFT
+则是对同一个 1.7B 学生更新全部参数，不是训练 30B。结果合理，但只能支持当前配置下的
+工程决策，不能泛化为“30B teacher 更差”或“LoRA 永远优于 Full SFT”。
+
+**30B teacher 实际更强，但不符合当前数据筛选目标。** 相对 8B，它的错误答案更少
+（57 vs 79）、截断更少（8 vs 16）、工具错误率更低（10.3% vs 22.7%）；但完全不调用工具的
+轨迹更多（125/400 vs 77/400），工具调用总数更少（369 vs 485），导致“无成功工具调用”过滤
+增至 126 vs 90。我们的合格轨迹要求“数学正确 ∩ 至少一次成功工具调用 ∩ 未截断 ∩ 长度
+合格”，因此数学能力收益被工具调用意愿下降抵消，最终 yield 52% vs 53%、L5 coverage
+63% vs 65%。而且 Qwen3-30B-A3B 是 MoE，总参数 30.5B、每 token 激活约 3.3B，并非 30B
+dense。probe 的近似 95% CI（yield 差 `[-7.9,+5.9]pt`、L5 coverage 差
+`[-15.3,+11.3]pt`）也说明应解读为“未检测到值得全量切换的收益”，不是证明 30B 本质更差。
+
+这里需要明确区分三个层次：**teacher capability ≠ trajectory suitability ≠ trajectory
+learnability**。前者是教师能否把题做对；第二层是正确轨迹是否满足当前 TIR protocol（真实、
+自然且有效地调用工具，并通过格式/执行/长度筛选）；第三层才是学生能否通过 SFT 学会该轨迹并
+泛化到 held-out 问题。本次 probe 已直接证明前两层不等价：30B 能力更强，但合格 TIR 轨迹
+没有变多。**当前 M3 尚未直接测量第三层 learnability**，不能仅凭轨迹更长、更复杂或教师更强
+就断言学生更容易受益。
+
+若要测 trajectory learnability，应在固定数据量下按属性分桶做小规模 SFT，例如短/长轨迹、
+单次/多次 tool call、全程成功/error-recovery、L3/L4/L5，以及 8B/30B teacher 来源，然后用
+同一 held-out TIR pass@1、工具错误率和弃用率比较。如果某类轨迹看似更强或更复杂，学生学完
+却没有更好的 held-out 泛化，就说明该类轨迹对当前 1.7B student 的 learnability 较低。这是
+合理的后续解释变量，但不是当前 M3 的必要验收项。
+
+**Full SFT 的自由度更大，但不保证小数据泛化更好。** 同一 held-out 200 的题目级 bootstrap：
+Full−LoRA 的 CoT pass@1 为 +1.75pt（95% CI `[-1.38,+4.88]`），TIR 为 +0.88pt
+（`[-2.38,+4.25]`），均无法排除采样噪声；工具错误率却增加 +6.41pt
+（`[+1.16,+11.65]`），是更可信的退化。具体原因有三点：① 这只是一次无调参对照，Full LR
+为 `1e-5`、LoRA 为 `1e-4`，Full 最终训练 loss 反而更高（0.1906 vs 0.1683），没有证据表明
+Full recipe 已优化充分；② 6056 条小数据主要教接口行为，LoRA 的低秩约束相当于正则化，
+更能保留基座的代码/格式能力；③ 数据故意包含 797 条“报错后恢复”轨迹，错误 tool call 本身
+仍是监督 token，而训练目标又不直接惩罚 tool error，Full SFT 可能更强地拟合这类副作用。
+
+**一般解决方式不是继续放大 teacher，而是管理轨迹分布。** ① 从“只筛最终正确”升级为轨迹级
+选择，同时考虑 tool interaction 是否必要、自然、可执行且适合学生；② 对每题多采样并显式控制
+tool-use coverage，只保留调用格式正确、执行有效的轨迹，必要时按难度和调用形态配额；③ 保持
+SFT 的职责是 cold start——教会基本 tool call、读取输出、错误恢复和最终作答，把“什么时候该
+用工具、怎样用得更有效”交给 M4 之后的 on-policy RL。对 ToolCredit 而言，tool-behavior
+distribution 已有直接证据，M4 又需要固定统一起点，因此没有必要为了尚未验证的 learnability
+假说继续优化 M3 或扩大 teacher/SFT 搜索范围。
+
+**公开研究中的位置**：这类非单调结果是正常现象。工具研究把“是否用工具”视为独立于通用
+能力的行为维度（[MetaTool, ICLR 2024](https://proceedings.iclr.cc/paper_files/paper/2024/hash/bc12914d66b41b6bfc2d3a5decdb498b-Abstract-Conference.html)），
+专门训练的较小模型也能达到接近更大闭源模型的工具表现
+（[ToolLLM](https://arxiv.org/abs/2307.16789)）。原始
+[LoRA 论文](https://arxiv.org/abs/2106.09685)报告过 LoRA 持平或超过 Full FT；后续
+[LoRA Learns Less and Forgets Less](https://arxiv.org/abs/2405.09673)则显示充分调参和更多
+数据下 Full FT 常有更高目标域上限，但 LoRA 更少遗忘、正则化更强。因此本实验的严谨结论是：
+**当前 bare-tool 生成协议下 30B 未通过产量/覆盖 gate；当前单次 Full-SFT recipe 没有可靠的
+pass@1 收益且工具错误显著恶化；trajectory learnability 尚未直接测量，但不构成继续扩展 M3
+的必要条件，所以继续保留 8B 教师数据和 LoRA SFT-6k 作为 M4 起点。**
+
+**证据**：`sft/experiments/m3_minimal/teacher_probe/comparison.json`、
+`sft/experiments/m3_minimal/full_sft/evaluation_comparison.json`、`plans/M3.md`；Qwen 参数口径见
+[官方模型卡](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507)。
