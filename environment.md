@@ -6,8 +6,12 @@
   标注的高风险平台，所有 wheel 安装需确认 aarch64 支持。
 - 运行环境：JupyterHub pod（用户 jovyan），Ubuntu 24.04，内核 6.8.0-1025-nvidia-64k（64k page size）。
 - **pod 内无 docker** → PLAN 建议的 NGC 容器路线不可用，改走 conda 环境 + aarch64 wheel。
-- home 为 NFS 挂载（约 706 GB 剩余，2026-07-12）；大模型缓存/ckpt 的 IO 性能待 M0 实测。
+- home 为 NFS 挂载；M4 正式 run 已验证约 21 GB 的完整 checkpoint 可稳定写入，step-200
+  checkpoint 写入约 23.3 秒，未出现 NFS I/O 失败。
 - 系统 Python 3.13（过新，不用）；有 conda 与 uv，**约定用 conda 新建 Python 3.12 环境 `toolcredit`**。
+- JupyterHub pod 重建后系统层 `tmux` 可能消失。2026-08-20 为恢复 M4 长跑，在现有
+  `toolcredit` 环境安装并验证 **tmux 3.7**（conda-forge）；后台任务统一用
+  `conda run -n toolcredit tmux ...`，不依赖 pod 镜像的系统包。
 
 ## 本地 5090（调试）
 

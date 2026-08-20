@@ -2,35 +2,52 @@
 
 ## 当前状态
 
-- **M3 验收通过**（2026-07-14，tag `m3`；格式成功率与 pass@1 提升两项边缘指标经用户确认接受）。
-- **RL 统一起点：`sft/checkpoints/qwen3-1.7b-sft`**（merged 完整 ckpt，verl `model.path` 直接用）。
-- SFT 数据：`sft/data/sft_traces.jsonl`（6056 条，五条件拒绝采样，含 797 条报错恢复）；
-  held-out：`sft/data/heldout_200.jsonl`（未参与蒸馏）。
-- 关键机制：SFT 样本经**真实 ToolAgentLoop 重放**构造（`sft/trace_tokenizer.py`），与 M4
-  rollout tokenization 逐 token 同构。
-- SFT 后画像（500 题，temp0.6 n=4）：TIR 0.704 / 增益 −0.032（L4–5 平价/转正，负增益在
-  不入池的 L1–3）/ 报错率 19% / 弃用率 7% / 组内混合结果 L3–5 = 0.39/0.54/0.48。
-- 教师覆盖率缺口：L5 41% 题目无合格轨迹（拒绝采样难度偏置），交给 on-policy RL。
-- 2026-08-19 最小复核已完成：30B teacher 的 yield/L5 覆盖未胜 8B（52%/63% vs
-  53%/65%）；full SFT held-out 的 TIR/CoT 为 0.5188/0.5900，但工具错误率/弃用率
-  0.2654/0.1150 均差于 LoRA 的 0.2013/0.1050。两项均拒绝切换，服务已停止；详见
-  `plans/M3.md` 与 `sft/experiments/m3_minimal/`。
+- **M4 / E3 已完成并验收通过**（2026-08-20，tag `m4`）：正式 run
+  `e3_grpo_baseline_20260819_224555` 完成 200/200 step，固定 MATH500-100 greedy pass@1
+  **0.60→0.76**（峰值 0.77）。KL、entropy 与响应长度无病态；训练前/后 25-step 的工具
+  错误率 12.84%→7.66%、格式无效率 10.30%→3.14%、截断率 6.30%→0.55%。
+- 最终 checkpoint `global_step_200` 含 model/optimizer/scheduler/RNG/DataLoader 状态；
+  200 份训练预测、9×100 条验证预测、resolved config、metrics、summary 与 TensorBoard 齐全。
+  数据 schema/哈希/split/污染检查通过，真实 pod 权限下 **74 tests passed**。
+- JupyterHub 中断恢复证据保留在 run 的
+  `recovery/resume_from_150_20260820_100834/`：中断前 step 168 完成、169 未完成，从最新完整
+  checkpoint 150 恢复并重算 151–168；旧预测已归档，未与恢复后正式曲线混用。
+- **M3 验收通过**（2026-07-14，tag `m3`）；RL 统一起点继续是
+  `sft/checkpoints/qwen3-1.7b-sft`。2026-08-19 的 30B teacher/full SFT 最小复核均未支持
+  切换起点，产物与结论见 `plans/M3.md`。
 
-## 下一步（M4，PLAN §8）——计划待用户批准
+## 下一步（M5，PLAN §9）——先计划、获批后开工
 
-1. `rl/configs/e3_grpo_baseline.yaml` + `rl/launch/`：字段以 PLAN §8.1 骨架为基准、对照
-   M0 官方示例校正（sglang async + tool_agent + 我们的 sandbox 工具 + rewards/composite）；
-   数据 = train_subset.jsonl 除 held-out 外的 5203 条转 verl parquet 格式。
-2. 监控面板（PLAN §8.2 十项指标）+ 异常处置手册进 README。
-3. 200 step，save/test_freq 25（MATH500 子集）；tmux 长跑 + 日志落盘；预算 4 天含 2–3 次重调。
-4. 决策点：reward 用 rewards/composite_reward 注入 verl 的方式（custom reward fn 路径）
-   需按禁止事项 #1 最小侵入并记 CHANGES.md。
+1. 为 M5 新建并提交 `plans/M5.md` 供用户批准；未获明确授权前不启动训练或批量评测。
+2. E6 必做：复制 E3 config，只关闭工具返回 token mask，跑 50–80 step，记录 loss、复读工具
+   输出与 eval 崩溃点；不得改动或覆盖 E3 run。
+3. E4 必做：优先执行 λ_exec=0.2 shaping run，保持数据、SFT 起点、seed、步数和评测协议与 E3
+   一致，关注早期收敛及“空刷执行成功”的 reward hacking。
+4. E7 仅在时间富余且 veRL 有现成动态过滤开关时做；否则按 PLAN 如实跳过。
 
-## 记账
+## M4 复现与证据指针
 
-- M0 遗留：DataLoader worker 收尾阶段被杀（自愈）——**M4 长跑重点监控**；NFS ckpt IO 未实测。
-- 5090 本地侧 smoke test 仍待用户复跑（M0 项）。
-- 工具行为注意：M1 的 AST auto-print 在 `env/sandbox.py:prepare_tool_code`（单一来源）；
-  M4 的训练工具应复用它而非官方 SandboxTool 的行版启发式。
-- verifier 存疑项（单位省略等价按对）用户未表异议，维持现状。
-- qa_log 持续追加（约定 #8）；技术报告每 Milestone 更新（约定 #5）。
+- 配置：`rl/configs/e3_grpo_baseline.yaml`；launcher：`rl/launch/e3_grpo_baseline.py`；
+  后台入口：`scripts/m4/run_e3.sh`；监控：`rl/monitor_run.py`。
+- 正式 run：`rl/runs/e3_grpo_baseline_20260819_224555/`；详细验收与执行偏差：`plans/M4.md`；
+  技术叙事：`reports/technical_report.md` §6。
+- M4 数据：源训练池 5203 条、有效训练池 5195 条、固定验证 100 条；manifest 位于
+  `rl/data/manifest.json`，污染报告位于 `data/contamination_report_m4.md`。
+- 核心验收命令：
+
+  ```bash
+  conda run --no-capture-output -n toolcredit pytest -q \
+    env/test_sandbox.py rewards/test_rewards.py sft/test_trace_tokenizer.py \
+    rl/custom/test_masking.py rl/custom/test_m4_adapters.py \
+    rl/launch/test_e3_config.py rl/test_monitor_run.py rl/test_prepare_data.py
+  ```
+
+## 风险与边界
+
+- M4 验收是固定 MATH500-100、greedy、n=1；完整 MATH500/AIME 泛化与 bad-case 分析留给 M7。
+- 最终验证 invalid rate 仍为 12%；parser 错误为 0，剩余主要是 verifier 无法判定或格式问题，
+  后续实验必须保持同一口径并持续记录，不得静默忽略。
+- M4 已验证 NFS 约 21 GB checkpoint 写入；JupyterHub 仍可能重启，长跑继续使用 conda
+  `toolcredit` 环境中的 tmux、唯一 run name、完整 checkpoint 与低频 watcher。
+- 5090 本地侧 smoke test 仍待用户复跑（M0 项），不阻塞服务器侧后续 Milestone。
+- 不提交或改动 `reports/qa_log.md`、`.vscode/` 和 M3 未跟踪 checkpoint/tensorboard 产物。

@@ -28,3 +28,6 @@ sft/**/*.jsonl
 third_party/
 data/**/*.log
 scripts/**/logs/
+rl/data/*.parquet
+rl/runs/
+rl/cache/

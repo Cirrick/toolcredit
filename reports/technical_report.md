@@ -15,7 +15,7 @@
 | M1 | 数据 + 工具增益预实验 | ✅ 2026-07-13 | **零样本工具增益全难度层为负（−10pt）**；机制分解证明潜在增益在 L3–5 真实存在（工具成功时 L5 翻倍）→ 负增益源于"不会用工具"而非"工具没用"，SFT 冷启动必要性获得定量证据；训练集定为 MATH L3–5 共 5403 条 |
 | M2 | 沙箱 / verifier / masking 测试 | ✅ 2026-07-14 | reward 通路三地基全绿（56 tests）：沙箱含真禁网（unshare netns）；verifier 200 例审计的数学等价判定假阳性/语义假阴性均 0 检出，严格 boxed 口径另有 4/200 格式漏分；顺带修复 M1 判分 2 处假阴性；verl mask 构建验证无误 |
 | M3 | SFT 冷启动 | ✅ 2026-07-14 | Qwen3-8B 本地蒸馏 10.4k 轨迹→拒绝采样 6k→LoRA SFT：工具报错率 34%→19%、弃用率 27%→7%、格式 93%；增益 −0.101→−0.032（L5 转正、L4 平价），剩余缺口=数学能力+教师未覆盖难题=RL 的活；SFT-6k 定为全部 RL 实验统一起点 |
-| M4 | E3 GRPO baseline | ⬜ | |
+| M4 | E3 GRPO baseline | ✅ 2026-08-20 | 标准轨迹级 GRPO 200 step 训稳：固定 MATH500-100 pass@1 **0.60→0.76**（峰值 0.77），KL/entropy/长度健康，工具错误、格式无效与截断均下降；建立 E5/E6 的可复现基准 |
 | M5 | E6 no-mask / E4 shaping | ⬜ | |
 | M6 | E5 轮级信用分配 | ⬜ | |
 | M7 | 评测 / 分析 / 报告 | ⬜ | |
@@ -322,16 +322,79 @@ merge 成完整 checkpoint 供 verl 直接加载。
 - 过程中抓的两个小事故也有价值：教师会写出参数键错误的 tool call（数据质检第五条件的
   由来）、等待脚本抓错日志（流程纪律教训）。
 
-## 6. 路线图与当前状态
+## 6. M4 — E3 主 baseline：multi-turn GRPO（2026-08-20，tag `m4`）
 
-**当前**：M3 完成，M4 待启动。**RL 统一起点：`sft/checkpoints/qwen3-1.7b-sft`**（SFT-6k）；
-训练集 MATH L3–5 5403 条（其中 200 题 held-out），评测集四件套就绪，reward 通路三地基
-全绿，SFT 数据与 rollout tokenization 同构。
+### 6.1 动机与对照边界
 
-**接下来**：M4 E3 GRPO baseline 训稳（全项目最大时间预算 4 天，含 2–3 次重调；监控面板
-+ 异常处置手册）→ M5/M6 消融与核心对照（E6 → E4 → E5）→ M7 全量评测与四份报告。
+M4 的任务不是证明新的信用分配方法，而是先把标准 GRPO 的 E3 基准训稳。它把同一条轨迹的
+组相对优势广播给所有模型生成 token；后续 E5 只改信用分配，数据、SFT 起点、rollout、reward
+和评测协议都要以本 run 为对照。若 E3 本身不稳定，E5 的任何差异都无法归因。
+
+统一起点为 M3 的 `sft/checkpoints/qwen3-1.7b-sft`。训练池是移除 held-out 后的 5203 条
+MATH L3–5，固定验证集为按 level 各 20 题分层抽样的 MATH500-100。标准 GRPO 使用
+64 prompts × 8 rollouts、lr 1e-6、loss 内 KL 0.001、clip 0.2/0.28、最多四次工具调用、
+3072 response tokens，共 200 step，每 25 step 保存和验证。
+
+### 6.2 工程接线与失败驱动修正
+
+没有 fork 或修改 veRL 内部。训练工具、reward 与 agent loop 都经官方配置扩展点注入：工具执行
+复用 M2 的 `env/sandbox.py`，严格 boxed reward 复用 `rewards/composite_reward`。三次 smoke
+依次暴露了零工具轨迹缺少动态列、Hermes parser 错误只写日志、DataLoader worker 收尾被杀；
+对应修正是给轨迹计数补显式零值、把 parser/dispatch 错误纳入 `invalid_rate`、正式配置使用
+`dataloader_num_workers=0`。最终 smoke 5/5 且退出干净。
+
+正式 run 在 step 169 rollout 期间遭遇 JupyterHub pod 重启。文件与 TensorBoard 审计确认
+step 168 已完成、最新完整 checkpoint 为 150；恢复前归档旧 151–168 预测，并从 checkpoint 150
+恢复 model/optimizer/scheduler/RNG/DataLoader，跳过已完成的 step-150 启动验证。同一 run 最终
+完成 200 step。这个事故验证了 checkpoint 可恢复性，也说明异步 rollout 的恢复不承诺 bitwise
+重现；正式指标只读取恢复后的 canonical step 文件。
+
+### 6.3 主结果
+
+| Step | 0 | 25 | 50 | 75 | 100 | 125 | 150 | 175 | 200 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| MATH500-100 pass@1 | 0.60 | 0.67 | 0.67 | 0.70 | 0.73 | 0.73 | 0.74 | **0.77** | **0.76** |
+
+最终 +16pt，且提升分布在多个连续验证点，不依赖挑选峰值。step 200 比峰值少 1 题；固定验证集
+只有 100 题，因此不把 0.77 与 0.76 的差异解释为真实性能回落。训练 reward 的前/后 25-step
+均值为 0.589/0.782。
+
+稳定性证据：entropy 从 0.202 到 0.309（范围 0.187–0.321），没有单调坍缩；actor PPO KL
+范围约 −9.81e−5–1.37e−4，未飙升；每 step 平均响应长度最高 1342、最终 1156，未逼近
+3072 上限。训练前/后 25-step 均值显示，截断率 6.30%→0.55%、工具错误率 12.84%→7.66%、
+parser 错误轨迹率 1.45%→0.61%、格式无效率 10.30%→3.14%。固定验证集的格式成功率
+87%→95%、工具错误率 9.50%→5.25%、截断率 8%→1%。换言之，pass@1 提升同时伴随接口行为
+改善，没有“reward 上升但真实评测不动”的明显 hacking 信号。
+
+### 6.4 验收、限制与后续用途
+
+run 五件套、TensorBoard、200 份训练预测、9×100 条验证预测和 step-200 完整 checkpoint 均
+落盘；数据 split/哈希/污染检查通过，真实 pod 权限下 74 项测试全绿。M4 因而达到 PLAN §8
+“稳定提升 + 无病态曲线 + 一页摘要”的全部门槛。
+
+限制有三点：这里只是固定 100 题 greedy n=1 的阶段性验证，完整 MATH500/AIME 留给 M7；
+最终验证仍有 12% invalid，主要由 verifier 无法判定或格式问题组成；本阶段只有 E3，无法回答
+turn-level credit 的因果收益。它的价值是给 M5 的 E6/E4 和 M6 的 E5 提供严格可比的配置、
+曲线与行为基线。
+
+### 6.5 面试叙事要点
+
+- baseline 的价值是“可归因”：先证明标准 GRPO 在同一栈上稳定工作，再只改信用分配变量；
+- 训练健康不能只看 reward：同时用 eval、KL、entropy、长度、工具/parser 错误、invalid 和
+  全对/全错组约束解释空间；
+- 中断恢复展示了实验可追溯性：区分“已生成”与“已 checkpoint”，保留旧预测、从完整状态
+  恢复并避免重复验证，而不是把不连续 run 伪装成一次连续训练。
+
+## 7. 路线图与当前状态
+
+**当前**：M4 完成。E3 从 SFT-6k 统一起点训练 200 step，固定 MATH500-100 pass@1
+0.60→0.76，形成后续实验的标准轨迹级 GRPO baseline。
+
+**接下来**：先为 M5 制定并获批计划，再做消融 E6 no-mask 与 E4 shaping；随后 M6 完成核心
+E5 turn-level credit 对照，M7 做全量评测与报告。
 
 **风险登记簿**（活跃项）：
-- DataLoader worker 在训练收尾阶段被杀（M0 两次，均自愈）——M4 长跑监控；
-- home 为 NFS：checkpoint 写入 IO 未实测——M4 首个长跑时确认；
+- DataLoader worker 收尾被杀已在 M4 smoke 复现并以 `dataloader_num_workers=0` 消除；后续
+  长跑沿用并继续监控；
+- NFS checkpoint 已由 M4 的多个约 21 GB 恢复点验证，step-200 写入约 23.3 秒；
 - 5090 本地链路待用户复跑 smoke test（不阻塞服务器侧进度）。

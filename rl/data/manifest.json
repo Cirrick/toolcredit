@@ -1,0 +1,85 @@
+{
+  "seed": 42,
+  "prompt_suffix": " Let's think step by step and output the final answer within \\boxed{}.",
+  "train_source": "sft/data/sft_pool.jsonl",
+  "heldout_source": "sft/data/heldout_200.jsonl",
+  "validation_source": "data/processed/math500.jsonl",
+  "counts": {
+    "train": 5203,
+    "validation": 100,
+    "smoke_train": 20,
+    "smoke_validation": 8
+  },
+  "train_levels": {
+    "3": 1500,
+    "4": 1593,
+    "5": 2110
+  },
+  "validation_levels": {
+    "1": 20,
+    "2": 20,
+    "3": 20,
+    "4": 20,
+    "5": 20
+  },
+  "heldout_overlap": 0,
+  "prompt_lengths": {
+    "max_prompt_tokens": 1024,
+    "train_max": 1843,
+    "validation_max": 438,
+    "overlong_train": [
+      {
+        "id": "math_train_000544",
+        "tokens": 1051
+      },
+      {
+        "id": "math_train_000960",
+        "tokens": 1031
+      },
+      {
+        "id": "math_train_002347",
+        "tokens": 1224
+      },
+      {
+        "id": "math_train_002616",
+        "tokens": 1843
+      },
+      {
+        "id": "math_train_002903",
+        "tokens": 1697
+      },
+      {
+        "id": "math_train_003043",
+        "tokens": 1149
+      },
+      {
+        "id": "math_train_004551",
+        "tokens": 1029
+      },
+      {
+        "id": "math_train_005723",
+        "tokens": 1216
+      }
+    ],
+    "overlong_validation": [],
+    "effective_train_after_verl_filter": 5195
+  },
+  "files": {
+    "rl/data/e3_train.parquet": {
+      "sha256": "5d98b991d327f7d2de4e41cdb6be6bfb44b9b8379dd4ca314e0b6ca9607d9dbc",
+      "bytes": 707358
+    },
+    "rl/data/e3_val_math500_100.parquet": {
+      "sha256": "296902cbefad3dee4ba59065bf59d68212ed1ef630e330c6d40bd65a13ca34b1",
+      "bytes": 17372
+    },
+    "rl/data/e3_smoke_train_20.parquet": {
+      "sha256": "e2f3b93a3e998bc3d36429617cd0e116e54cb74c0eaf1ef18cc4c356474a6ce4",
+      "bytes": 7637
+    },
+    "rl/data/e3_smoke_val_8.parquet": {
+      "sha256": "26691ec8fa3361328abeca3c4f13a290c431ab0edbcc722103250e0146571c79",
+      "bytes": 5982
+    }
+  }
+}

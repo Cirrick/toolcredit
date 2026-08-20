@@ -10,11 +10,10 @@ ToolCredit 研究多轮工具调用 RL 中的信用分配：比较标准 GRPO �
 与 turn-level 信用分配在训练效率、最终性能和模型行为上的差异。技术栈为 Python、veRL、
 GRPO 和 Python 解释器工具。
 
-- 当前进度：M3 已完成；下一阶段是 M4 / E3 GRPO baseline。
+- 当前进度：M4 / E3 GRPO baseline 已完成；下一阶段是 M5 / E6 no-mask 与 E4 shaping。
 - RL 统一起点：`sft/checkpoints/qwen3-1.7b-sft`。
 - 运行平台：GH200/aarch64 JupyterHub pod，无 Docker；conda 环境为 `toolcredit`。
-- `plans/M4.md` 已记录获批计划，但原批示要求“暂时别开工”。没有用户新的明确开工指令时，
-  不启动 M4、训练、批量生成或全量评测。
+- M5 尚无获批计划。没有用户新的明确开工指令时，不启动 M5、训练、批量生成或全量评测。
 
 ## 文档优先级
 
@@ -82,7 +81,7 @@ pytest -q \
   rl/custom/test_masking.py
 ```
 
-- 测试应在 conda 环境 `toolcredit` 中执行；若当前环境不是该环境，使用
+- 测试以及训练应在 conda 环境 `toolcredit` 中执行；若当前环境不是该环境，使用
   `conda run -n toolcredit ...`，不要擅自重建环境。
 - 数据或配置变更还需做 schema、样本量、split、去重和 resolved config 检查。
 - 训练接线变更必须先跑既定 smoke test；正式长跑前核对工具、reward、mask、保存路径和监控指标。
