@@ -197,3 +197,65 @@ pass@1 收益且工具错误显著恶化；trajectory learnability 尚未直接�
 **证据**：`sft/experiments/m3_minimal/teacher_probe/comparison.json`、
 `sft/experiments/m3_minimal/full_sft/evaluation_comparison.json`、`plans/M3.md`；Qwen 参数口径见
 [官方模型卡](https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507)。
+
+---
+
+## Q10（2026-08-20，M4 指标口径复盘）：answer、parser、tool、truncation、invalid 和 reward 分别由谁产生？veRL 在模型与沙盒之间做什么？
+
+**答**：这不是一个模块一次性算出的指标包，而是一条三层数据流：① `ToolCreditAgentLoop` 与
+`ToolCreditSandboxTool` 在生成过程中把工具调用、成功、执行错误和解析错误累计到每条轨迹的
+`extra_fields`；② `rl/custom/reward.py:compute_score` 读取这些状态，调用严格 boxed verifier、
+format checker 和 composite reward，返回逐轨迹 `score/acc/format_ok/invalid/...`；③ veRL 将
+返回值写进 rollout/validation JSONL，`rl/monitor_run.py` 再按 step 聚合成 mean/rate，并写入
+`metrics.json` 和 TensorBoard。数据集原有的题目 ID 也沿同一个 `extra_info` 通道传到 reward。
+
+**模型并不直接执行 Python，veRL 是中间的 agent 编排器。** 模型只生成 Hermes 文本，例如
+`<tool_call>{"name":"code_interpreter","arguments":{"code":"1+1"}}</tool_call>`；veRL 的
+Hermes parser 把合法文本转成 `FunctionCall(name, arguments)`，按 `tool_config.yaml` 找到工具，
+调用 `ToolCreditSandboxTool.execute`，再把 `ToolResponse` 作为环境消息追加到对话并让模型继续
+生成。veRL 同时维护轮数/长度状态、响应 token 与 mask、工具返回段 loss mask、rollout 和后续
+GRPO 训练；项目适配器负责统计，`env/sandbox.py` 才负责受限子进程中的真实执行。
+
+`parsed_count = len(agent_data.tool_calls)` 是 **veRL parser 成功构造出的结构化调用数**，不是
+模型文本中 `<tool_call>` 标签的数量，也不是沙盒成功次数。在当前 `max_parallel_calls=1` 下，
+一个解析阶段通常为 0 或 1：合法标签、合法 JSON、可构造成 `FunctionCall` 时为 1；没有调用时
+为 0；模型明显想调用工具但 JSON/标签残缺时也为 0。项目用
+`candidate_count - parsed_count`（下限 0）估算 `tool_parse_error_count`：前者数完整调用块及残留
+的开/闭标签，后者来自 veRL 的实际解析结果。达到 response/turn budget 时不做这项比较，避免把
+被截断的半个标签误报为 parser error。
+
+错误类型按流水线阶段严格区分：
+
+- **parser error**：沙盒前失败；模型生成了疑似 tool call，但 veRL 无法解析成结构化调用；
+- **dispatch/argument error**：已能解析，但工具不存在，或参数不是唯一的字符串 `code`；计入
+  tool error；
+- **tool runtime error**：`env/sandbox.py` 返回 `error`/`timeout`；也计入 tool error；
+- **普通答案错误**：verifier 能判定但不等价，`acc=0, invalid=0`；
+- **verifier invalid**：已有 boxed 内容，但 math-verify 与 SymPy 都无法形成判断，表现为
+  `verify_method="none"`；没有 boxed 是定义明确的 `no_boxed` 错误，不算 verifier invalid。
+
+各逐轨迹字段的当前实现口径是：`acc = answer_correct`；`format_ok = 存在完整 boxed AND
+tool_parse_error_count == 0`（不要求答案正确或工具执行成功）；`tool_error_rate =
+tool_error_count / tool_call_counts`，零调用时为 0；显式 `truncated` 目前只表示“调用达到 4 次且
+最终没有 boxed”，纯 response-length 截断没有进入这个字段；`invalid = verifier_invalid OR
+parser_error`，是逻辑并集而非算术相加，tool error、普通答错、no-boxed 和 truncation 不自动
+进入 invalid。若要从落盘 JSONL 单独统计 verifier invalid，应数 `verify_method == "none"`；当前
+`invalid` 字段已经与 parser error 合并。
+
+`invalid` 是**结果可信度/管线健康告警**，不是“答错”的同义词，也不是 E3 中独立的 reward
+惩罚项。它让 verifier 无法判定和交互协议损坏不被静默混进普通错误，便于监控
+`invalid_rate`、抽轨迹审计以及排查 reward hacking。E3 实际
+`score = 1.0 * acc + 0.1 * format_ok`，截断强制为 0；parser error 会通过取消 0.1 格式分间接
+影响 score，verifier invalid 会令 `acc=0`，tool error 本身不扣 E3 reward（E4 才可打开
+execution shaping）。因此可能出现“答案正确 + parser error → `acc=1, format_ok=0,
+invalid=1, score=1.0`”，也可能出现“工具执行失败但最终正确且格式合法 → `score=1.1`”。
+
+监控端对 JSONL 做轨迹宏平均：`invalid_rate=mean(invalid)`、`truncated_rate=mean(truncated)`、
+`invalid_format_rate=1-mean(format_ok)`；`tool_parse_error_rate` 是“至少一个解析错误的轨迹占比”，
+不是平均解析错误次数；`tool_error_rate` 是先算每条轨迹的错误调用比例再平均，不等于全局
+`sum(errors)/sum(calls)`。这些区别决定曲线应如何解释。
+
+**证据**：`rl/custom/tool_agent_loop.py:19-79`、`rl/custom/sandbox_tool.py:73-106`、
+`env/sandbox.py:87-128`、`rewards/verifier.py:99-119`、`rewards/format_reward.py:6-10`、
+`rewards/composite_reward.py:38-67`、`rl/custom/reward.py:28-72`、
+`rl/monitor_run.py:40-61`、`rl/custom/test_m4_adapters.py`。
