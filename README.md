@@ -3,7 +3,7 @@
 **研究问题**：在多轮工具调用（TIR）的 RL 训练中，把 outcome 奖励以轨迹级优势广播到全部轮次
 （标准 GRPO），与引入轮级（turn-level）信用分配相比，对训练效率、最终性能和模型行为的影响。
 
-完整实施文档见 [PLAN.md](PLAN.md)；项目约定见 [CLAUDE.md](CLAUDE.md)；环境记录见
+完整实施文档见 [PLAN.md](PLAN.md)；项目约定见 [AGENTS.md](AGENTS.md)；环境记录见
 [environment.md](environment.md)；**逐 Milestone 的动机/方法/结果叙事见
 [reports/technical_report.md](reports/technical_report.md)**（living document，面试复盘入口）。
 
@@ -23,6 +23,7 @@
 | M2 沙箱/verifier/masking | ✅ 完成（2026-07-14） | **56 tests 全绿**：沙箱加固（真禁网 netns + 资源限制 + 恶意 payload 全过）；verifier 双口径 + 200 例人工审计（**数学等价判定假阳性/语义假阴性均 0 检出；严格 boxed 口径另有 4/200 格式漏分**，顺带修复 M1 判分 2 处假阴性）；verl ToolAgentLoop mask 构建验证无误（详见 [reports/02_appendix_verifier_audit.md](reports/02_appendix_verifier_audit.md)） |
 | M3 SFT 冷启动 | ✅ 完成（2026-07-14；2026-08-19 最小复核） | Qwen3-8B 本地蒸馏 + 五条件拒绝采样 **6056 条**（含 797 条报错恢复）；工具报错率 34%→19%、弃用率 27%→7%、**增益 −0.101→−0.032**。30B teacher 未提高 yield/L5 覆盖；full SFT 仅小幅提高 held-out pass@1 且工具错误率恶化 6.4pt，均拒绝切换；LoRA SFT-6k 仍为全部 RL 实验统一起点（详见 [plans/M3.md](plans/M3.md)） |
 | M4 E3 GRPO baseline | ✅ 完成（2026-08-20） | 标准轨迹级 GRPO 完成 200/200 step；固定 MATH500-100 greedy pass@1 **0.60→0.76**（峰值 0.77），KL、entropy 与长度曲线健康；训练截断、工具错误和格式无效率均下降。五件套、step-200 完整 checkpoint 与 74 项测试验收通过（详见 [plans/M4.md](plans/M4.md)） |
+| M5 E6 no-mask / E4 shaping / E7 filtering | 🚧 阶段验收：E6、E4 完成；E7 主动 deferred（2026-08-22） | **E6** 80/80 step，实际有 4.662% loss token 来自 tool return，但 fixed panel 未出现灾难性退化；**E4-A** exec-only 与 **E4-B** joint shaping 均完成 200/200，final pass@1 为 0.77/0.76（E3 0.76），early AUC 为 0.66625/0.68500（E3 0.67625）。exec bonus 明显增加调用和 hacking candidates；budget penalty 只小幅缓解，最终能力无稳定收益。E7 设计审查已完成，用户有意 defer 到 M6/E5 完成之后；不是实现失败或取消，M5 不 tag（详见 [plans/M5.md](plans/M5.md)、[E7 review](plans/M5_E7_IMPLEMENTATION_REVIEW.md)） |
 
 ## 复现
 
@@ -66,6 +67,29 @@ conda run --no-capture-output -n toolcredit python -m rl.monitor_run \
 conda run --no-capture-output -n toolcredit tmux new-session -d -s m4-e3-monitor \
   'cd /home/jovyan/toolcredit && bash scripts/m4/watch_e3.sh <run_name> 600'
 ```
+
+M5 已完成 run 的机器可读分析可从原始 JSONL 重算；这些命令只重建分析文件，不启动训练：
+
+```bash
+conda run --no-capture-output -n toolcredit python -m rl.analyze_e6 \
+  --run-dir rl/runs/e6_nomask_20260820_235621
+conda run --no-capture-output -n toolcredit python -m rl.analyze_e4 \
+  --run-dir rl/runs/e4a_exec_only_20260821_040632
+conda run --no-capture-output -n toolcredit python -m rl.analyze_e4 \
+  --run-dir rl/runs/e4b_joint_shaping_20260821_153100
+conda run --no-capture-output -n toolcredit python -m rl.compare_e4 \
+  --e3 rl/runs/e3_grpo_baseline_20260819_224555 \
+  --e4a rl/runs/e4a_exec_only_20260821_040632 \
+  --e4b rl/runs/e4b_joint_shaping_20260821_153100 \
+  --output-dir rl/runs/m5_e3_e4_comparison
+```
+
+M5 正式 run 的摘要分别位于
+`rl/runs/e6_nomask_20260820_235621/summary.md`、
+`rl/runs/e4a_exec_only_20260821_040632/summary.md`、
+`rl/runs/e4b_joint_shaping_20260821_153100/summary.md`；三方解释位于
+`rl/runs/m5_e3_e4_comparison/summary.md`。E7 设计审查已完成，但用户有意 defer 到 M6/E5 完成之后；
+当前没有 trainer/config/launcher 或可运行入口，也不会在本阶段启动。
 
 ## M4 训练稳定性监控与异常处置
 

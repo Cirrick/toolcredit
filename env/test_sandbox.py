@@ -57,7 +57,8 @@ def test_memory_bomb_limited() -> None:
 def test_delete_root_owned_file_fails() -> None:
     r = run_python("import os\nos.remove('/etc/hostname')")
     assert r["status"] == "error"
-    assert "PermissionError" in r["stderr"]
+    # Depending on the pod mount, the kernel reports either EACCES or EROFS.
+    assert "PermissionError" in r["stderr"] or "Read-only file system" in r["stderr"]
     assert os.path.exists("/etc/hostname")
 
 

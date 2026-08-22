@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
 import shutil
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,14 @@ from omegaconf import DictConfig, OmegaConf
 DEFAULT_CONFIG = PROJECT_ROOT / "rl/configs/e3_grpo_baseline.yaml"
 RUN_ROOT = PROJECT_ROOT / "rl/runs"
 RUN_NAME_RE = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]*$")
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(8 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _absolute(project_path: str) -> str:
@@ -168,6 +178,26 @@ def resource_preflight(config: DictConfig, smoke: bool) -> dict[str, Any]:
             f"unexpected M4 parquet counts: train={train_rows}, val={val_rows}; "
             f"expected {expected_train}/{expected_val}"
         )
+    train_path = Path(config.data.train_files)
+    val_path = Path(config.data.val_files)
+    manifest = json.loads((PROJECT_ROOT / "rl/data/manifest.json").read_text(encoding="utf-8"))
+    data_hashes: dict[str, str] = {}
+    for path in (train_path, val_path):
+        relative = str(path.relative_to(PROJECT_ROOT))
+        actual_hash = _sha256(path)
+        expected_hash = manifest["files"][relative]["sha256"]
+        if actual_hash != expected_hash:
+            raise ValueError(f"input hash mismatch for {relative}")
+        data_hashes[relative] = actual_hash
+    checkpoint_model = Path(config.actor_rollout_ref.model.path) / "model.safetensors"
+    if not checkpoint_model.is_file():
+        raise FileNotFoundError(f"missing SFT model weights: {checkpoint_model}")
+    git_head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=PROJECT_ROOT, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    git_status = subprocess.run(
+        ["git", "status", "--short"], cwd=PROJECT_ROOT, check=True, capture_output=True, text=True
+    ).stdout.splitlines()
     return {
         "gpu": properties.name,
         "gpu_total_gib": round(total_bytes / 2**30, 2),
@@ -176,12 +206,19 @@ def resource_preflight(config: DictConfig, smoke: bool) -> dict[str, Any]:
         "train_rows": train_rows,
         "validation_rows": val_rows,
         "checkpoint": config.actor_rollout_ref.model.path,
+        "input_hashes": data_hashes,
+        "checkpoint_model_sha256": _sha256(checkpoint_model),
+        "git_head": git_head,
+        "git_status_short": git_status,
+        "torch_version": torch.__version__,
+        "verl_version": getattr(verl, "__version__", "unknown"),
     }
 
 
 def archive_interrupted_attempt(run_dir: Path, stamp: str) -> dict[str, Any]:
     """Preserve outputs newer than the checkpoint before veRL overwrites them."""
-    tracker = run_dir / "checkpoints/latest_checkpointed_iteration.txt"
+    checkpoint_root = run_dir / "checkpoints"
+    tracker = checkpoint_root / "latest_checkpointed_iteration.txt"
     checkpoint_step = int(tracker.read_text(encoding="utf-8").strip())
     train_dir = run_dir / "predictions/train"
     persisted_steps = sorted(
@@ -202,11 +239,24 @@ def archive_interrupted_attempt(run_dir: Path, stamp: str) -> dict[str, Any]:
         source = run_dir / name
         if source.is_file():
             shutil.copy2(source, archive_dir / name)
+    incomplete_checkpoint_steps: list[int] = []
+    archive_checkpoint_dir = archive_dir / "incomplete_checkpoints"
+    for path in checkpoint_root.glob("global_step_*"):
+        match = re.fullmatch(r"global_step_(\d+)", path.name)
+        if match is None or not path.is_dir():
+            continue
+        step = int(match.group(1))
+        if step <= checkpoint_step:
+            continue
+        archive_checkpoint_dir.mkdir(exist_ok=True)
+        shutil.move(str(path), archive_checkpoint_dir / path.name)
+        incomplete_checkpoint_steps.append(step)
     metadata = {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "checkpoint_step": checkpoint_step,
         "last_persisted_train_step": max(persisted_steps, default=checkpoint_step),
         "recomputed_train_steps": recomputed_steps,
+        "archived_incomplete_checkpoint_steps": sorted(incomplete_checkpoint_steps),
         "preserved_validation_steps": validation_steps,
         "skip_resume_start_validation": True,
     }

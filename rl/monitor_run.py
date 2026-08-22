@@ -46,7 +46,7 @@ def read_rollout_metrics(prediction_dir: Path) -> dict[int, dict[str, float]]:
         groups: dict[str, list[float]] = defaultdict(list)
         for row in rows:
             groups[str(row["sample_id"])].append(float(row["acc"]))
-        metrics[int(path.stem)] = {
+        step_metrics = {
             "reward/mean": _mean([float(row["score"]) for row in rows]),
             "n_tool_calls/mean": _mean([float(row["n_tool_calls"]) for row in rows]),
             "tool_error_rate": _mean([float(row["tool_error_rate"]) for row in rows]),
@@ -59,6 +59,36 @@ def read_rollout_metrics(prediction_dir: Path) -> dict[int, dict[str, float]]:
             "group_all_correct_frac": _mean([float(all(value == 1.0 for value in group)) for group in groups.values()]),
             "group_all_wrong_frac": _mean([float(all(value == 0.0 for value in group)) for group in groups.values()]),
         }
+        if all("original_tool_return_token_count" in row for row in rows):
+            policy_tokens = [float(row["original_policy_token_count"]) for row in rows]
+            tool_tokens = [float(row["original_tool_return_token_count"]) for row in rows]
+            loss_tokens = [float(row["nomask_loss_token_count"]) for row in rows]
+            total_loss_tokens = sum(loss_tokens)
+            step_metrics.update(
+                {
+                    "mask/original_policy_tokens_mean": _mean(policy_tokens),
+                    "mask/tool_return_tokens_mean": _mean(tool_tokens),
+                    "mask/nomask_loss_tokens_mean": _mean(loss_tokens),
+                    "mask/tool_return_loss_fraction": (
+                        sum(tool_tokens) / total_loss_tokens if total_loss_tokens else 0.0
+                    ),
+                }
+            )
+        if all("base_score" in row for row in rows):
+            step_metrics.update(
+                {
+                    "reward/base_score_mean": _mean([float(row["base_score"]) for row in rows]),
+                    "reward/exec_success_fraction_mean": _mean(
+                        [float(row["exec_success_fraction"]) for row in rows]
+                    ),
+                    "reward/exec_bonus_mean": _mean([float(row["exec_bonus"]) for row in rows]),
+                    "reward/budget_penalty_mean": _mean(
+                        [float(row["budget_penalty"]) for row in rows]
+                    ),
+                    "n_tool_success/mean": _mean([float(row["n_tool_success"]) for row in rows]),
+                }
+            )
+        metrics[int(path.stem)] = step_metrics
     return metrics
 
 

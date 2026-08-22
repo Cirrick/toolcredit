@@ -69,7 +69,7 @@ def _sandbox_outputs():
     return code_interpreter
 
 
-def _build_loop(tokenizer, response_length: int = 2048):
+def _build_loop(tokenizer, response_length: int = 2048, loop_class=None):
     """Assemble a ToolAgentLoop without the trainer-level dependency injection."""
     from transformers.utils import get_json_schema
 
@@ -87,7 +87,8 @@ def _build_loop(tokenizer, response_length: int = 2048):
         is_async=False,
     )
 
-    loop = ToolAgentLoop.__new__(ToolAgentLoop)
+    loop_class = loop_class or ToolAgentLoop
+    loop = loop_class.__new__(loop_class)
     loop.tokenizer = tokenizer
     loop.processor = None
     loop.apply_chat_template_kwargs = {"enable_thinking": False}
@@ -114,8 +115,24 @@ def _build_loop(tokenizer, response_length: int = 2048):
 def rollout():
     from transformers import AutoTokenizer
 
+    from rl.custom.tool_agent_loop import ToolCreditAgentLoop
+
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
-    loop = _build_loop(tokenizer)
+    loop = _build_loop(tokenizer, loop_class=ToolCreditAgentLoop)
+    output = asyncio.get_event_loop().run_until_complete(
+        loop.run(sampling_params={}, raw_prompt=[{"role": "user", "content": QUESTION}])
+    )
+    return tokenizer, output
+
+
+@pytest.fixture(scope="module")
+def nomask_rollout():
+    from transformers import AutoTokenizer
+
+    from rl.custom.no_mask_tool_agent_loop import ToolCreditNoMaskAgentLoop
+
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+    loop = _build_loop(tokenizer, loop_class=ToolCreditNoMaskAgentLoop)
     output = asyncio.get_event_loop().run_until_complete(
         loop.run(sampling_params={}, raw_prompt=[{"role": "user", "content": QUESTION}])
     )
@@ -185,6 +202,47 @@ def test_padding_masked_zero(rollout) -> None:
     assert final_mask.shape[-1] == max_len
     assert final_mask[0, -17:].sum() == 0  # padding contributes zero loss weight
     assert final_mask[0, : len(output.response_mask)].tolist() == output.response_mask
+
+
+def test_e6_changes_only_tool_return_mask_and_adds_audit(rollout, nomask_rollout) -> None:
+    _, baseline = rollout
+    _, treatment = nomask_rollout
+    assert treatment.response_ids == baseline.response_ids
+    assert treatment.prompt_ids == baseline.prompt_ids
+    assert treatment.num_turns == baseline.num_turns
+    # Timing fields are measured independently in the two deterministic replays.
+    assert treatment.metrics.num_preempted == baseline.metrics.num_preempted
+    assert treatment.extra_fields["tool_call_counts"] == baseline.extra_fields["tool_call_counts"]
+    assert treatment.extra_fields["tool_success_count"] == baseline.extra_fields["tool_success_count"]
+    assert treatment.extra_fields["tool_error_count"] == baseline.extra_fields["tool_error_count"]
+    assert treatment.extra_fields["tool_parse_error_count"] == baseline.extra_fields["tool_parse_error_count"]
+    assert baseline.response_mask.count(0) > 0
+    assert treatment.response_mask == [1] * len(treatment.response_ids)
+    assert treatment.extra_fields["original_policy_token_count"] == sum(baseline.response_mask)
+    assert treatment.extra_fields["original_tool_return_token_count"] == baseline.response_mask.count(0)
+    assert treatment.extra_fields["nomask_loss_token_count"] == len(treatment.response_ids)
+
+
+def test_e6_padding_remains_outside_loss(nomask_rollout) -> None:
+    tokenizer, output = nomask_rollout
+    max_len = len(output.response_ids) + 11
+    tokenizer.padding_side = "right"
+    padded_mask = tokenizer.pad(
+        {"input_ids": output.response_mask}, padding="max_length", max_length=max_len, return_tensors="pt"
+    )["input_ids"]
+    padded_resp = tokenizer.pad(
+        {"input_ids": output.response_ids},
+        padding="max_length",
+        max_length=max_len,
+        return_tensors="pt",
+        return_attention_mask=True,
+    )
+    if padded_mask.dim() == 1:
+        padded_mask = padded_mask.unsqueeze(0)
+        padded_resp = {key: value.unsqueeze(0) for key, value in padded_resp.items()}
+    final_mask = padded_mask * padded_resp["attention_mask"]
+    assert final_mask[0, : len(output.response_ids)].tolist() == [1] * len(output.response_ids)
+    assert final_mask[0, -11:].sum() == 0
 
 
 def test_truncation_keeps_alignment() -> None:

@@ -34,3 +34,36 @@
   `agent_loop_config_path` 扩展点注入；生成、状态机和 masking 均保持官方实现。第二次 smoke 又发现
   Hermes parser 会把畸形 JSON 只写日志后丢弃、dispatch 失败也不会进入工具计数；该子类在不改变
   状态转移的前提下记录 `tool_parse_error_count`，并补记未进入 BaseTool 的 dispatch/执行错误。
+
+## [M5 / E6 配置注入] tool-return no-mask 对照
+
+- **状态**：2026-08-20 按获批 M5 计划实现；没有修改 veRL site-packages。
+- **AgentLoop 子类**：`ToolCreditNoMaskAgentLoop` 继承 M4 的 `ToolCreditAgentLoop`，完整复用生成、
+  工具执行、parser 与终止逻辑，仅在 `run()` 返回后把实际 response 中原本为 0 的 tool/environment
+  return mask 改为 1。prompt 仍不在 response tensor 中；padding 仍由 veRL postprocess 的 attention
+  mask 保持为 0。
+- **审计字段**：逐轨迹记录原始 policy token、原始 tool-return token 和 E6 loss token 数；reward
+  入口只在这些字段存在时校验守恒并透传到 raw JSONL，E3 缺省返回 schema/数值保持不变。
+- **注入与回退**：E6 通过独立 agent-loop registration 与 config 选择该子类；E3 继续使用
+  `ToolCreditAgentLoop`。回退只需使用 E3 config，不涉及框架文件。
+
+## [M5 / E4 配置注入] 可审计 reward shaping
+
+- **状态**：2026-08-21 按获批 M5 计划实现；没有修改 veRL site-packages。
+- **单一 reward 入口**：`rl/custom/reward.py:compute_score` 通过 veRL 0.8.0 原生
+  `custom_reward_function.reward_kwargs` 接收 `lambda_exec`、`lambda_budget` 和 `budget`，继续委托
+  `rewards/composite_reward.py`；E4-A/E4-B 没有复制 verifier 或 reward 主逻辑。
+- **E3 回归边界**：E3 未传 kwargs 时仍构造全零 shaping 配置，返回字段集合与数值由 golden test
+  锁定不变。只有显式传入 E4 kwargs 时才附加 `base_score`、`exec_success_fraction`、`exec_bonus`、
+  `budget_penalty` 和 `n_tool_success`。
+- **行为差异**：E4-A 仅设置 `lambda_exec=0.2`；E4-B 在相同配置上仅增加
+  `lambda_budget=0.1, budget=3`。truncated 轨迹继续总分为 0，不被 shaping 救活；负计数、非有限
+  系数和 breakdown 不守恒显式失败。
+## 2026-08-21 — interrupted-checkpoint recovery audit
+
+- `rl.launch.e3_grpo_baseline.archive_interrupted_attempt` now moves any
+  `global_step_<N>` directory newer than veRL's atomic
+  `latest_checkpointed_iteration.txt` tracker into the run's recovery archive.
+  This preserves partial checkpoint-write evidence and prevents a resume from
+  silently overwriting it. Complete tracked checkpoints and training behavior
+  are unchanged.

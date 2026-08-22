@@ -132,3 +132,76 @@ def test_composite_defaults_are_sparse() -> None:
     """Default config must stay outcome+format only (E5 experimental precondition)."""
     cfg = RewardConfig()
     assert cfg.lambda_exec == 0.0 and cfg.lambda_budget == 0.0
+
+
+@pytest.mark.parametrize(
+    ("n_calls", "n_success", "a_reward", "b_reward", "exec_fraction", "budget_penalty"),
+    [
+        (0, 0, 1.1, 1.1, 0.0, 0.0),
+        (2, 2, 1.3, 1.3, 1.0, 0.0),
+        (2, 1, 1.2, 1.2, 0.5, 0.0),
+        (2, 0, 1.1, 1.1, 0.0, 0.0),
+        (3, 3, 1.3, 1.3, 1.0, 0.0),
+        (4, 4, 1.3, 1.2, 1.0, 0.1),
+    ],
+)
+def test_e4a_e4b_registered_formula_boundaries(
+    n_calls: int,
+    n_success: int,
+    a_reward: float,
+    b_reward: float,
+    exec_fraction: float,
+    budget_penalty: float,
+) -> None:
+    a = compute_reward(
+        "\\boxed{42}",
+        "42",
+        n_tool_calls=n_calls,
+        n_tool_success=n_success,
+        config=RewardConfig(lambda_exec=0.2),
+    )
+    b = compute_reward(
+        "\\boxed{42}",
+        "42",
+        n_tool_calls=n_calls,
+        n_tool_success=n_success,
+        config=RewardConfig(lambda_exec=0.2, lambda_budget=0.1, budget=3),
+    )
+    assert a["reward"] == pytest.approx(a_reward)
+    assert b["reward"] == pytest.approx(b_reward)
+    assert a["base_score"] == b["base_score"] == pytest.approx(1.1)
+    assert a["exec_success_fraction"] == b["exec_success_fraction"] == pytest.approx(exec_fraction)
+    assert a["exec_bonus"] == b["exec_bonus"] == pytest.approx(0.2 * exec_fraction)
+    assert a["budget_penalty"] == 0.0
+    assert b["budget_penalty"] == pytest.approx(budget_penalty)
+    assert b["reward"] == pytest.approx(a["reward"] - b["budget_penalty"])
+
+
+def test_e4_truncated_override_keeps_breakdown_sum_zero() -> None:
+    result = compute_reward(
+        "unfinished",
+        "42",
+        n_tool_calls=4,
+        n_tool_success=4,
+        truncated=True,
+        config=RewardConfig(lambda_exec=0.2, lambda_budget=0.1, budget=3),
+    )
+    assert result["reward"] == 0.0
+    assert result["base_score"] == result["exec_bonus"] == result["budget_penalty"] == 0.0
+    assert result["exec_success_fraction"] == 1.0
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"n_tool_calls": -1}, "n_tool_calls"),
+        ({"n_tool_calls": 1, "n_tool_success": -1}, "n_tool_success"),
+        ({"n_tool_calls": 1, "n_tool_success": 2}, "cannot exceed"),
+        ({"config": RewardConfig(lambda_exec=-0.1)}, "lambda_exec"),
+        ({"config": RewardConfig(lambda_budget=float("nan"))}, "lambda_budget"),
+        ({"config": RewardConfig(budget=-1)}, "budget"),
+    ],
+)
+def test_composite_rejects_invalid_e4_counts_and_config(kwargs: dict, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        compute_reward("\\boxed{42}", "42", **kwargs)

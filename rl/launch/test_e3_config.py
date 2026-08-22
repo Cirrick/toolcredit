@@ -70,6 +70,10 @@ def test_archive_interrupted_attempt_preserves_only_post_checkpoint_outputs(tmp_
     run_dir = tmp_path / "resume_test"
     (run_dir / "checkpoints").mkdir(parents=True)
     (run_dir / "checkpoints/latest_checkpointed_iteration.txt").write_text("150\n")
+    (run_dir / "checkpoints/global_step_150").mkdir()
+    incomplete_checkpoint = run_dir / "checkpoints/global_step_175"
+    incomplete_checkpoint.mkdir()
+    (incomplete_checkpoint / "partial.pt").write_text("partial\n")
     train_dir = run_dir / "predictions/train"
     validation_dir = run_dir / "predictions/validation"
     train_dir.mkdir(parents=True)
@@ -88,5 +92,10 @@ def test_archive_interrupted_attempt_preserves_only_post_checkpoint_outputs(tmp_
     ]
     assert metadata["checkpoint_step"] == 150
     assert metadata["last_persisted_train_step"] == 168
+    assert metadata["archived_incomplete_checkpoint_steps"] == [175]
     assert metadata["preserved_validation_steps"] == [0, 25, 150]
     assert (archive_dir / "status.json").is_file()
+    assert not incomplete_checkpoint.exists()
+    assert (
+        archive_dir / "incomplete_checkpoints/global_step_175/partial.pt"
+    ).read_text() == "partial\n"

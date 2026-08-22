@@ -16,7 +16,7 @@
 | M2 | 沙箱 / verifier / masking 测试 | ✅ 2026-07-14 | reward 通路三地基全绿（56 tests）：沙箱含真禁网（unshare netns）；verifier 200 例审计的数学等价判定假阳性/语义假阴性均 0 检出，严格 boxed 口径另有 4/200 格式漏分；顺带修复 M1 判分 2 处假阴性；verl mask 构建验证无误 |
 | M3 | SFT 冷启动 | ✅ 2026-07-14 | Qwen3-8B 本地蒸馏 10.4k 轨迹→拒绝采样 6k→LoRA SFT：工具报错率 34%→19%、弃用率 27%→7%、格式 93%；增益 −0.101→−0.032（L5 转正、L4 平价），剩余缺口=数学能力+教师未覆盖难题=RL 的活；SFT-6k 定为全部 RL 实验统一起点 |
 | M4 | E3 GRPO baseline | ✅ 2026-08-20 | 标准轨迹级 GRPO 200 step 训稳：固定 MATH500-100 pass@1 **0.60→0.76**（峰值 0.77），KL/entropy/长度健康，工具错误、格式无效与截断均下降；建立 E5/E6 的可复现基准 |
-| M5 | E6 no-mask / E4 shaping | ⬜ | |
+| M5 | E6 no-mask / E4 shaping / E7 filtering | 🚧 阶段验收 2026-08-22 | E6 与两条 E4 正式 run 已完成：no-mask 确实让 4.662% loss token 来自环境返回，但 80 step 内未出现灾难性退化；exec shaping 增加调用和 hacking candidates，budget penalty 只小幅缓解，三条 recipe 的 final pass@1 为 E3/A/B=`0.76/0.77/0.76`，无稳定最终能力收益。E7 设计审查已完成，用户主动 defer 到 M6/E5 完成之后；不是实现失败或取消，M5 不 tag |
 | M6 | E5 轮级信用分配 | ⬜ | |
 | M7 | 评测 / 分析 / 报告 | ⬜ | |
 
@@ -220,7 +220,8 @@ RL 训练数据的质量决定梯度信号的质量，具体到 GRPO + 工具调
 
 RL 里最贵的 bug 不是训练崩（看得见），而是**训练"成功"但优化了错误目标**。M2 针对三个
 入口各修一道防线：沙箱被失控代码搞挂（训练中断）、verifier 误判（reward 直接错，假阳性
-= hacking 入口）、loss mask 错误（模型学复读环境输出——E6 将故意展示这种崩法）。
+= hacking 入口）、loss mask 错误（可能让模型学习环境输出；E6 后续故意放开 mask 检验该风险，
+实际短窗结果见 §7）。
 
 ### 4.2 沙箱（`env/sandbox.py` + 20 tests）
 
@@ -385,16 +386,217 @@ turn-level credit 的因果收益。它的价值是给 M5 的 E6/E4 和 M6 的 E
 - 中断恢复展示了实验可追溯性：区分“已生成”与“已 checkpoint”，保留旧预测、从完整状态
   恢复并避免重复验证，而不是把不连续 run 伪装成一次连续训练。
 
-## 7. 路线图与当前状态
+## 7. M5 — E6 no-mask、E4 reward shaping 与 E7 review gate（阶段验收：2026-08-22）
 
-**当前**：M4 完成。E3 从 SFT-6k 统一起点训练 200 step，固定 MATH500-100 pass@1
-0.60→0.76，形成后续实验的标准轨迹级 GRPO baseline。
+### 7.1 动机与实验边界
 
-**接下来**：先为 M5 制定并获批计划，再做消融 E6 no-mask 与 E4 shaping；随后 M6 完成核心
-E5 turn-level credit 对照，M7 做全量评测与报告。
+M5 不改变信用分配算法，而是先回答三个会直接影响后续 E5 解释的问题：
+
+1. **E6 no-mask**：如果错误地把 environment/tool return token 也纳入 policy loss，是否会导致
+   环境输出复读、伪造或固定评测崩溃？这是 mechanism/diagnostic experiment，不预设结果必须为负。
+2. **E4 reward shaping**：给成功执行工具一个 dense bonus，是否改善学习效率；如果诱发 over-calling，
+   对超过三次调用加小额 budget penalty 能否缓解？
+3. **E7 dynamic filtering**：按真实 GRPO scalar `score` 丢弃组内零方差 prompt，并补采样到每次
+   effective update 有 64 个 informative groups，能否提高单位采样/时间效率？这需要介入 trainer
+   data flow，因此在实现前单独过边界审查。
+
+三组实验继续从同一个 `sft/checkpoints/qwen3-1.7b-sft` 独立启动，冻结 E3 的 5203 条训练池、
+MATH500-100 fixed panel、seed、64 prompts × 8 rollouts、生成参数、optimizer、KL、clip、sandbox、
+verifier 和最多四次工具调用。E6 只改变 tool-return loss mask；E4 只改变 reward kwargs；任何
+shaped score 上升都不能直接解释为数学能力提升。
+
+E4 在看结果前冻结为两条必做 run：
+
+\[
+r_A=r_{base}+0.2\frac{n_{success}}{n_{calls}},
+\qquad
+r_B=r_A-0.1\max(0,n_{calls}-3),
+\]
+
+其中 `n_calls=0` 时 execution fraction 定义为 0，工具预算耗尽且没有 boxed final answer 的轨迹仍
+按 E3 协议总 reward=0，shaping 不“救活”截断轨迹。E4-A 隔离 execution bonus；E4-A→E4-B
+隔离 budget penalty；E3→E4-B 只代表完整 joint recipe 的总体效果。
+
+### 7.2 接线、测试与运行纪律
+
+没有 fork、升级或直接修改 veRL site-packages：
+
+- E6 使用 repo-local `ToolCreditNoMaskAgentLoop`，复用原状态机，只把真实 tool-return segment 的
+  response mask 从 0 改为 1；prompt 仍不在 response tensor 中，padding 仍由 attention mask 归零。
+  每条轨迹同时记录原 policy token、tool-return token 和 no-mask loss token，并做逐条守恒检查。
+- E4 复用同一个 `rl/custom/reward.py:compute_score` 和严格 verifier，通过现有
+  `reward_kwargs` 注入 `lambda_exec/lambda_budget/budget`。E3 不传 kwargs 时字段和值保持 golden
+  behavior；A/B 额外落盘 base score、exec fraction/bonus、budget penalty、success count 和 final score。
+- resolved-config 门禁证明 E3→E6 只有 mask/run metadata/80-step 上限差异，E3→A 只有 exec reward
+  与 run metadata 差异，A→B 只有 budget penalty 与 run metadata 差异。
+- 两类实验都先完成 unit/config tests、5-step smoke 和人工轨迹检查才启动正式 run；通过的 E4-B
+  smoke checkpoint 按用户指令删除约 21 GiB，只保留 resolved config、分析、metrics、summary、
+  TensorBoard 与 `checkpoint_cleanup.json`。全仓已无可见 smoke checkpoint 目录。
+
+最终分组回归为 **105 passed、1 skipped**。pod 将删除 `/etc/hostname` 的拒绝从 EACCES 表现为
+EROFS，因此 sandbox test 接受 `PermissionError` 或 read-only filesystem，但仍严格断言操作失败且
+文件存在；这没有降低隔离安全要求。
+
+三个正式 run 均用 tmux、唯一 run name、25-step checkpoint/eval 和轻量 watcher。E4-A 在写 step 150
+checkpoint 时 pod 中断，只从 tracker 指向的完整 step 125 恢复；旧 train 126–149 和半写 checkpoint
+归档。E4-B 在 train 172 后中断，只从完整 step 150 恢复，旧 151–172 归档。两次恢复都先核对
+resolved config、数据/SFT hash、GPU/磁盘，正式曲线只读恢复后重算的 canonical files。
+
+### 7.3 E6：操纵生效，但灾难性负效应未复现
+
+正式 run `e6_nomask_20260820_235621` 完成 80/80，没有触发预注册 early stop：
+
+| Step | 0 | 25 | 50 | 75 | 80 |
+|---:|---:|---:|---:|---:|---:|
+| E3 pass@1 | 0.60 | 0.67 | 0.67 | 0.70 | — |
+| E6 pass@1 | 0.61 | 0.71 | 0.74 | 0.68 | 0.70 |
+| 同 step 差值 | +0.01 | +0.04 | +0.07 | −0.02 | — |
+
+41,460 条 train+validation 轨迹共有 37,964,808 个 E6 loss token，其中 1,769,932 个来自 tool return，
+整体占 **4.662%**；单步前/后 25-step 均值由 6.54% 降至 3.35%，说明模型后期减少工具返回暴露，
+但 treatment 绝非空开关。entropy 最低 0.176，平均 response length 最高 1,152，单步 truncation
+最高 11.7%；`|KL|>0.01` 最长只连续 1 step，均未达到预注册病理阈值。
+
+自动筛出 2,435 条复读/伪造候选，其中许多只是多次真实调用返回同一数学结果。19 条人工审计为
+`repeat=7`、`legitimate_quote=6`、`forge=6`；6 条 forge 都是 parser 失败后模型生成不完整
+`<tool_response>` wrapper，仅约占全部轨迹 0.0145%，远低于“系统性环境输出伪造”的早停条件。
+step 75 的 tool/parser error 有恶化迹象，但 fixed-panel 只比 E3 低 2pt，没有形成共同退化证据。
+
+因此正确结论不是“mask 无关紧要”，也不是“经典 no-mask bug 必然崩”：**在 Qwen3-1.7B、四轮工具
+预算和 80-step 观测窗内，环境 token 确实进入了梯度，但灾难性 fixed-panel 退化和大规模伪造没有
+复现。** 可能原因包括 treatment 暴露仅 3–8%、工具返回较短且高度规律、模型很快减少工具调用，
+以及 80 step 不足以观察更慢的分布漂移。E6 仍证明了 mask audit 必须落到 token 级，不能只相信配置。
+
+### 7.4 E4：exec bonus 抬高 reward 与调用，budget penalty 只弱修正
+
+两条正式 run 都独立完成 200 step。固定 panel 主结果为：
+
+| Run | 0–100 normalized AUC | 首次达到 0.67 / 0.70 / 0.73 | final / peak | mean base / shaped score |
+|---|---:|---|---|---|
+| E3 sparse | 0.67625 | 25 / 75 / 100 | 0.76 / 0.77@175 | 0.70917 / 0.70917 |
+| E4-A exec-only | 0.66625 | 75 / 75 / 75 | 0.77 / 0.77@200 | 0.70565 / 0.88492 |
+| E4-B joint | **0.68500** | 50 / 50 / 75 | 0.76 / 0.76@200 | 0.70742 / 0.88661 |
+
+完整 validation 曲线：
+
+- E4-A：`0.61/0.63/0.62/0.74/0.74/0.71/0.68/0.73/0.77`；
+- E4-B：`0.60/0.64/0.72/0.73/0.70/0.74/0.74/0.72/0.76`；
+- step 顺序均为 `0/25/50/75/100/125/150/175/200`。
+
+A 的平均 exec bonus 为 0.17928，B 为 0.18030；B 的平均 budget penalty 只有 **0.00110**。因此
+`0.8849/0.8866` 的 shaped score 主要是 reward 定义平移，而 base score 与 E3 几乎相同。行为对比如下：
+
+| 训练轨迹指标 | E3 | E4-A | E4-B |
+|---|---:|---:|---:|
+| mean tool calls | 0.96273 | **1.30503** | 1.28346 |
+| per-call success rate | 0.80532 | 0.86151 | **0.86473** |
+| 4+ call fraction | 0.02707 | 0.03527 | 0.03259 |
+| repeated-code candidate rate | 0.02019 | 0.02503 | 0.02183 |
+| trivial-code candidate rate | 0.00167 | 0.01275 | 0.00604 |
+| unused-result heuristic rate | 0.20420 | 0.30405 | 0.28190 |
+| tool error rate | 0.07897 | 0.06999 | 0.06839 |
+| invalid rate | 0.20060 | 0.19507 | 0.19873 |
+| parser error rate | 0.00752 | 0.00872 | 0.00863 |
+| truncation rate | 0.01697 | 0.02281 | 0.02158 |
+
+E4-A 自动筛出 57,240 条非互斥 candidates，20 条分层人工审计为
+`redundant_repeat=6/trivial_exec=4/unused_result=2/legitimate_use=8`。E4-B 有 55,136 条 candidates，
+人工标签为 `7/4/2/5`，另有 `uncertain=2`；4 条 budget-boundary 候选中 2 条 legitimate、2 条
+uncertain，没有确认 penalty avoidance，但样本太少，不能据此宣称这种行为不存在。自动候选是
+高召回启发式，人工样本也是按候选类型分层抽取，二者都不是总体 hacking rate 的无偏估计。
+
+### 7.5 三组预注册比较与因果判读
+
+1. **E3 → E4-A（execution bonus）**：early AUC −0.0100、final +0.01，mean calls +0.34230，
+   repeated/trivial/unused rates 分别 +0.00484/+0.01108/+0.09985。bonus 提高了执行成功率并降低
+   tool error，但显著扩大工具调用和可疑行为面；+1 题 final 与 −1pt early AUC 不支持稳定能力收益。
+2. **E4-A → E4-B（budget penalty）**：early AUC +0.01875、final −0.01，mean calls −0.02157，
+   4+ calls −0.00269，repeated/trivial/unused 分别 −0.00320/−0.00672/−0.02216。方向上符合“轻微
+   纠偏”，但 treatment 平均只有 0.00110，effect size 小，且 final 没保住 A 的 +1 题。
+3. **E3 → E4-B（完整 joint recipe）**：early AUC +0.00875、final 0，mean calls +0.32072；三类
+   heuristic rates 仍分别比 E3 高 +0.00164/+0.00437/+0.07770。完整 recipe 的最好证据是更早达到
+   中间阈值，而不是更高最终能力；代价是持续 over-calling。
+
+总体上，M5 不支持“dense process reward 自然带来能力提升”。execution bonus 学到的最直接行为是
+“更多且更成功地调用工具”，其中既有 legitimate use，也有 trivial/redundant/unused calls；小额 budget
+penalty 能沿预期方向修正一部分行为，却因只有第四次调用才生效而暴露太弱。按预注册纪律没有追加
+budget-only、调大 penalty、额外 seed 或事后重跑。
+
+### 7.6 E7：设计审查完成后主动 defer
+
+对 veRL 0.8.0 pin 源码的只读审计确认：`algorithm.filter_groups` 没有被原生
+`RayPPOTrainer.fit()` 读取，YAML-only 会形成“配置看似开启、实际未过滤”的假实验。动态补采样必须
+在 reward 已得到、old log prob/advantage 尚未计算时消费额外 dataloader batches；当前 pin 没有该 hook。
+
+拟议实现只新增 repo-local `DynamicFilterRayPPOTrainer` 和 `DynamicFilteringTaskRunner`：复制并锁定
+约 409 行 upstream `fit()` 与约 93 行 `TaskRunner.run()`，把 1–4 个 `64 prompts×8 rollouts` 的
+候选 chunk 按 UID 和实际 scalar `score` 严格零方差筛选，凑齐前 64 个 informative groups 后才复用
+原生 old/ref log prob、GRPO advantage、actor update 和 validation。候选循环保持同一冻结 actor snapshot；
+成功/异常路径都保证 rollout replicas sleep；checkpoint ledger 在 upstream tracker 前原子落盘，恢复时
+严格绑定 effective step，并同时报告 per-update、trajectory、rollout-token 和 wall-clock 效率。
+
+E3 仍必须走原生 `RayPPOTrainer`，不改 site-packages、不 fork/升级 veRL。完整边界和源码 SHA 见
+`plans/M5_E7_IMPLEMENTATION_REVIEW.md`。截至本节写作时，**E7 trainer/config/launcher 尚未创建，
+smoke/full run 均未启动**。用户于 2026-08-22 明确将 E7 有意 defer 到 M6/E5 完成之后；这是执行
+时序调整，不是实现失败、blocked 或取消。M5 保持阶段验收状态且不 tag；未来恢复 E7 时仍需重新核对
+pin 源码并获得 exact-boundary 专项批准。
+
+### 7.7 限制与可迁移结论
+
+- fixed panel 只有 100 题，1pt 就是一题；A final +1pt、B 与 E3 持平都不应被过度解释。完整
+  MATH500/AIME 与 bootstrap 置信区间留给 M7。
+- 当前只有单 seed。预注册预算禁止自动追加 seed，所以 early AUC 的小幅差异只能视为探索性证据。
+- E6 的 80-step 上限适合回答短期机制故障，不排除更长训练、工具返回更长或更高调用率环境中的
+  慢性退化。
+- hacking 自动规则与分层人工审计用于发现具体行为，不提供总体发生率的无偏估计；真实 taxonomy
+  需要 M7 统一抽样。
+- E4-B penalty 只影响第四次调用，平均 treatment exposure 很低；结果说明的是这组预注册系数，
+  不能外推为所有 budget regularization 无效。
+- 两次 pod recovery 保持配置和最后完整 checkpoint 一致，但异步 rollout 不保证 bitwise 重现；结论
+  依赖 canonical 文件、归档 ledger 和 fixed panel，而非声称逐 token 完全确定性。
+
+### 7.8 面试叙事要点
+
+- **反预期结果也有价值**：E6 操纵通过 token ledger 证明生效，但没有为了讲故事宣称“必然崩”；
+  将结论约束为当前暴露率和 80-step 窗口内的 null/weak effect。
+- **reward 与能力分开读**：shaped score 上涨约 0.18，但 base score/fixed pass@1 几乎不动；同时
+  tool calls 和 unused-result candidates 上升，是典型的“优化了指标定义，不等于提高任务能力”。
+- **消融矩阵支持因果边界**：E3→A 隔离 exec bonus，A→B 隔离 penalty，E3→B 只解释完整 recipe；
+  没有把 joint comparison 偷写成单因素结论。
+- **恢复纪律也是研究质量**：只从 tracker 指向的完整 checkpoint 恢复，先归档会重算的轨迹和半写
+  checkpoint，正式分析只读 canonical files；长跑中断没有被隐藏。
+- **知道什么时候必须停下来 review**：发现 E7 不是 YAML 开关后，没有伪造 filtering 已开启，也没有
+  直接复制 trainer；先给出 exact method、复制量、状态恢复和不变量，再等待批准。
+
+### 7.9 证据索引
+
+- 权威计划、执行偏差与验收表：`plans/M5.md`；E7 边界：`plans/M5_E7_IMPLEMENTATION_REVIEW.md`。
+- E6：`rl/runs/e6_nomask_20260820_235621/`，含五件套、`analysis/mask_audit.json`、2,435 条
+  candidates 与 19 条人工标签。
+- E4-A/B：`rl/runs/e4a_exec_only_20260821_040632/`、
+  `rl/runs/e4b_joint_shaping_20260821_153100/`，各含五件套、candidate manifest、20 条人工标签和
+  recovery ledger。
+- 三方机器可读比较与解释：`rl/runs/m5_e3_e4_comparison/e3_e4a_e4b_comparison.json`、`summary.md`。
+- E4-B smoke checkpoint 删除证据：
+  `rl/runs/e4b_joint_shaping_smoke_20260821_151700/checkpoint_cleanup.json`。
+
+## 8. 路线图与当前状态
+
+**当前**：M5 的 E6、E4-A、E4-B 和统一分析已完成并进入阶段验收；E7 exact implementation boundary
+设计审查也已完成，但用户有意 defer 到 M6/E5 完成之后。E7 未实现、未失败、未取消；M5 不提交完成
+tag。
+
+**接下来**：新会话进入 M6/E5 turn-level credit。M6 完成后若用户恢复 E7，再基于
+`plans/M5_E7_IMPLEMENTATION_REVIEW.md` 重新核对 pin 源码和资源并申请专项批准；在此之前不创建 E7
+trainer/config/launcher，不运行 smoke/full run。M7 全量评测仍在其后。
 
 **风险登记簿**（活跃项）：
 - DataLoader worker 收尾被杀已在 M4 smoke 复现并以 `dataloader_num_workers=0` 消除；后续
   长跑沿用并继续监控；
-- NFS checkpoint 已由 M4 的多个约 21 GB 恢复点验证，step-200 写入约 23.3 秒；
+- NFS checkpoint 已由 M4/M5 的多个约 21 GB 恢复点和两次真实 pod recovery 验证，但中断可能
+  留下半写目录；仍以 atomic tracker 为唯一恢复依据并先归档重算区间；
+- 当前磁盘仅余约 170 GiB（96% used），E7 raw candidate evidence 与正式 checkpoints 启动前必须
+  重新预算，不能通过删除历史正式 run 腾空间；
+- E7 与 pin veRL `fit()` 强耦合，当前按用户决定 defer 到 M6/E5 之后；未来获专项批准后用 upstream
+  SHA、差分测试和 resume ledger 防止无声漂移；
 - 5090 本地链路待用户复跑 smoke test（不阻塞服务器侧进度）。
