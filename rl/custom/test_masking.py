@@ -53,7 +53,7 @@ def _sandbox_outputs():
     outputs = [TOOL_OUTPUT_1, TOOL_OUTPUT_2]
     state = {"n": 0}
 
-    def code_interpreter(code: str) -> str:
+    async def code_interpreter(code: str) -> str:
         """Execute the code in the sandbox.
 
         Args:
@@ -67,6 +67,19 @@ def _sandbox_outputs():
         return out
 
     return code_interpreter
+
+
+class _InlineExecutorLoop:
+    """Run deterministic fixture callbacks inline to avoid tokenizer thread deadlocks."""
+
+    def run_in_executor(self, executor, function, *args):
+        del executor
+        future = asyncio.get_running_loop().create_future()
+        try:
+            future.set_result(function(*args))
+        except BaseException as exc:
+            future.set_exception(exc)
+        return future
 
 
 def _build_loop(tokenizer, response_length: int = 2048, loop_class=None):
@@ -84,7 +97,7 @@ def _build_loop(tokenizer, response_length: int = 2048, loop_class=None):
         name="code_interpreter",
         fn=fn,
         tool_schema=OpenAIFunctionToolSchema(**get_json_schema(fn)),
-        is_async=False,
+        is_async=True,
     )
 
     loop_class = loop_class or ToolAgentLoop
@@ -94,7 +107,13 @@ def _build_loop(tokenizer, response_length: int = 2048, loop_class=None):
     loop.apply_chat_template_kwargs = {"enable_thinking": False}
     loop.mm_processor_kwargs = {}
     loop.system_prompt = initialize_system_prompt(tokenizer, enable_thinking=False)
-    loop.loop = asyncio.get_event_loop()
+    loop.loop = _InlineExecutorLoop()
+    # HermesToolParser imports veRL's global event-loop helper directly. Point
+    # that test-only module reference at the same inline executor so fast
+    # tokenizer decode remains deterministic and cannot deadlock a worker thread.
+    import verl.experimental.agent_loop.tool_parser as tool_parser_module
+
+    tool_parser_module.get_event_loop = lambda: loop.loop
     loop.server_manager = FakeServer(tokenizer, ASSISTANT_TURNS)
     loop.tools = {"code_interpreter": tool}
     loop.tool_schemas = [tool.tool_schema.model_dump(exclude_unset=True, exclude_none=True)]
@@ -119,9 +138,7 @@ def rollout():
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     loop = _build_loop(tokenizer, loop_class=ToolCreditAgentLoop)
-    output = asyncio.get_event_loop().run_until_complete(
-        loop.run(sampling_params={}, raw_prompt=[{"role": "user", "content": QUESTION}])
-    )
+    output = asyncio.run(loop.run(sampling_params={}, raw_prompt=[{"role": "user", "content": QUESTION}]))
     return tokenizer, output
 
 
@@ -133,9 +150,7 @@ def nomask_rollout():
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     loop = _build_loop(tokenizer, loop_class=ToolCreditNoMaskAgentLoop)
-    output = asyncio.get_event_loop().run_until_complete(
-        loop.run(sampling_params={}, raw_prompt=[{"role": "user", "content": QUESTION}])
-    )
+    output = asyncio.run(loop.run(sampling_params={}, raw_prompt=[{"role": "user", "content": QUESTION}]))
     return tokenizer, output
 
 
@@ -251,8 +266,6 @@ def test_truncation_keeps_alignment() -> None:
 
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     loop = _build_loop(tokenizer, response_length=48)
-    output = asyncio.get_event_loop().run_until_complete(
-        loop.run(sampling_params={}, raw_prompt=[{"role": "user", "content": QUESTION}])
-    )
+    output = asyncio.run(loop.run(sampling_params={}, raw_prompt=[{"role": "user", "content": QUESTION}]))
     assert len(output.response_ids) <= 48
     assert len(output.response_mask) == len(output.response_ids)

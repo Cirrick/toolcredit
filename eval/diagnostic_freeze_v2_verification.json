@@ -1,0 +1,55 @@
+{
+  "verification": "passed",
+  "v1_protocol_sha256": "351c35b44d9663aff5b1a8780ecc0008e50a562b1b8e412839833c9e7906a5cd",
+  "v1_manifest_sha256": "3c8450b0612696f3af885309e153a116852e1f6aab49cc8e69a812186094e936",
+  "v2_protocol_sha256": "a3cdf6bf98efe5c214b970e2c78b5cede9bcfa560c726f1b4394ea3b83198831",
+  "v2_manifest_sha256": "6fa185e18c17761cf9c238cb2a9754e245cda8179136e59cb69c729c9b07f3f0",
+  "v2_closure_file_count": 37,
+  "panel_question_count": 760,
+  "changed_top_level_fields": [
+    "checkpoint_locator_gate",
+    "checkpoints",
+    "frozen_at",
+    "protocol_version",
+    "schema_version",
+    "supersedes"
+  ],
+  "unchanged_top_level_fields": [
+    "bootstrap",
+    "data_isolation",
+    "file_sha256",
+    "generation",
+    "git_head_at_freeze",
+    "pairing_and_transitions",
+    "panel",
+    "persistence",
+    "prompt",
+    "protocol_change_rule",
+    "taxonomy",
+    "tool",
+    "verifier"
+  ],
+  "checkpoint_roles": {
+    "e3": {
+      "role": "e3_grpo_baseline_step_200",
+      "state": "validated",
+      "locator": "/home/jovyan/toolcredit/rl/runs/e3_grpo_baseline_20260819_224555/checkpoints/global_step_200"
+    },
+    "e5": {
+      "role": "e5_turn_credit_step_200",
+      "state": "future",
+      "locator": null
+    },
+    "raw": {
+      "role": "raw_base_model",
+      "state": "validated",
+      "locator": "/home/jovyan/Qwen/Qwen3-1.7B"
+    },
+    "sft": {
+      "role": "sft_start",
+      "state": "validated",
+      "locator": "/home/jovyan/toolcredit/sft/checkpoints/qwen3-1.7b-sft"
+    }
+  },
+  "semantic_conclusion": "Panel, taxonomy, generation, tool, verifier, persistence, pairing, bootstrap, and data-isolation semantics are byte-equivalent at the parsed JSON level; v2 only versions the protocol and replaces checkpoint descriptions with the approved role-aware fail-closed locator gate."
+}

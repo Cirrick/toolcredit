@@ -24,6 +24,7 @@
 | M3 SFT 冷启动 | ✅ 完成（2026-07-14；2026-08-19 最小复核） | Qwen3-8B 本地蒸馏 + 五条件拒绝采样 **6056 条**（含 797 条报错恢复）；工具报错率 34%→19%、弃用率 27%→7%、**增益 −0.101→−0.032**。30B teacher 未提高 yield/L5 覆盖；full SFT 仅小幅提高 held-out pass@1 且工具错误率恶化 6.4pt，均拒绝切换；LoRA SFT-6k 仍为全部 RL 实验统一起点（详见 [plans/M3.md](plans/M3.md)） |
 | M4 E3 GRPO baseline | ✅ 完成（2026-08-20） | 标准轨迹级 GRPO 完成 200/200 step；固定 MATH500-100 greedy pass@1 **0.60→0.76**（峰值 0.77），KL、entropy 与长度曲线健康；训练截断、工具错误和格式无效率均下降。五件套、step-200 完整 checkpoint 与 74 项测试验收通过（详见 [plans/M4.md](plans/M4.md)） |
 | M5 E6 no-mask / E4 shaping / E7 filtering | 🚧 阶段验收：E6、E4 完成；E7 主动 deferred（2026-08-22） | **E6** 80/80 step，实际有 4.662% loss token 来自 tool return，但 fixed panel 未出现灾难性退化；**E4-A** exec-only 与 **E4-B** joint shaping 均完成 200/200，final pass@1 为 0.77/0.76（E3 0.76），early AUC 为 0.66625/0.68500（E3 0.67625）。exec bonus 明显增加调用和 hacking candidates；budget penalty 只小幅缓解，最终能力无稳定收益。E7 设计审查已完成，用户有意 defer 到 M6/E5 完成之后；不是实现失败或取消，M5 不 tag（详见 [plans/M5.md](plans/M5.md)、[E7 review](plans/M5_E7_IMPLEMENTATION_REVIEW.md)） |
+| M6 E5 turn-level credit | ✅ 完成（2026-08-24） | E5 `β=0.5` 完成 200/200；fixed-100 **early AUC 0.70625 vs E3 0.67625（+3pt）**，但 final 同为 **0.76**，paired 为 5 fixed / 5 new（accuracy delta 95% CI `[-0.06,0.06]`）。机制按设计分开 useful/problem turn，但 mean calls `0.963→2.551`、4-call `2.71%→44.05%`、重复代码 `2.02%→39.71%`：结论为“早期更快、最终无增益、明显 over-calling”。30 条 mixed-quality audit、100题 paired taxonomy、10k bootstrap与完整 recovery proof均验收（详见 [reports/02_main_results.md](reports/02_main_results.md)、[reports/03_badcase_taxonomy.md](reports/03_badcase_taxonomy.md)、[plans/M6.md](plans/M6.md)） |
 
 ## 复现
 
@@ -90,6 +91,21 @@ M5 正式 run 的摘要分别位于
 `rl/runs/e4b_joint_shaping_20260821_153100/summary.md`；三方解释位于
 `rl/runs/m5_e3_e4_comparison/summary.md`。E7 设计审查已完成，但用户有意 defer 到 M6/E5 完成之后；
 当前没有 trainer/config/launcher 或可运行入口，也不会在本阶段启动。
+
+M6 formal completion 与预注册分析可只读重算；这些命令不会启动训练、E7 或 M7：
+
+```bash
+conda run --no-capture-output -n toolcredit python -m rl.validate_e5_formal_completion \
+  rl/runs/e5_turn_credit_20260823_082012
+conda run --no-capture-output -n toolcredit python -m rl.finalize_m6
+conda run --no-capture-output -n toolcredit python -m analysis.plot_m6 \
+  rl/runs/e5_turn_credit_20260823_082012/analysis/e3_e5_performance_behavior.json \
+  reports/assets/02_e3_e5.png
+```
+
+正式 E5 的摘要与机器可读证据位于
+`rl/runs/e5_turn_credit_20260823_082012/summary.md` 和同目录 `analysis/`。M7 freeze v2保持不变；
+E5 checkpoint role由 M6 completion manifest解析，未来启动M7前仍需按冻结规则version evaluator locator。
 
 ## M4 训练稳定性监控与异常处置
 

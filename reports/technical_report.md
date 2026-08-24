@@ -580,23 +580,137 @@ pin 源码并获得 exact-boundary 专项批准。
 - E4-B smoke checkpoint 删除证据：
   `rl/runs/e4b_joint_shaping_smoke_20260821_151700/checkpoint_cleanup.json`。
 
-## 8. 路线图与当前状态
+## 8. M6 — E5 turn-level credit assignment（完成：2026-08-24）
 
-**当前**：M5 的 E6、E4-A、E4-B 和统一分析已完成并进入阶段验收；E7 exact implementation boundary
-设计审查也已完成，但用户有意 defer 到 M6/E5 完成之后。E7 未实现、未失败、未取消；M5 不提交完成
-tag。
+### 8.1 问题、设计与可归因边界
 
-**接下来**：新会话进入 M6/E5 turn-level credit。M6 完成后若用户恢复 E7，再基于
-`plans/M5_E7_IMPLEMENTATION_REVIEW.md` 重新核对 pin 源码和资源并申请专项批准；在此之前不创建 E7
-trainer/config/launcher，不运行 smoke/full run。M7 全量评测仍在其后。
+标准 E3 把同一 trajectory 的 native GRPO advantage广播给所有 policy-generated turn，无法区分一次有效
+计算和同轨迹中的报错/未采纳调用。E5 冻结的 Tier-A correction为：
+
+\[
+A_{turn}(t)=A_{traj}+0.5(s_t-\bar{s}_t),
+\]
+
+其中 `s_t=1` 要求调用成功且 visible post-truncation tool result被后续 assistant文本证据采纳；同 UID group、
+同 assistant position计算 `s̄_t`。tool return/padding仍 mask=0。它不训练 critic/PRM、不加额外 rollout，
+但 position alignment和文本共现都限制了它能代表的 step value。
+
+E3与E5都从 `sft/checkpoints/qwen3-1.7b-sft` 独立开始。train/val hash、seed、64×8 rollout、T=1、
+最多四次工具调用、answer+format reward、optimizer、KL/clip、mask、200 step和25-step validation cadence
+全部相同；E5没有从E3终点续训。resolved config diff只出现冻结的agent loop、trace/project与`turn_credit`
+字段，因此 performance/behavior差异可以归于这套 treatment及其必需ledger。
+
+### 8.2 接线、freeze 与 formal recovery
+
+实现没有fork、升级或直接修改veRL site-packages。E5专用 agent loop记录结构化 turn span、parser/execution、
+visible result与adoption evidence；Ray driver在`try/finally`中临时包裹native advantage和rollout logger，
+先得到完全相同的`A_traj`再加correction，退出时恢复原函数。Fixture A–E、E3 identity、config diff、
+shape/span/mask/UID和wrapper proof tests均通过。
+
+在任何canonical E5 output前冻结M7 v2 diagnostic closure：100题M6 primary和760题M7 universe、generation、
+tool、verifier、taxonomy、pairing与10,000次bootstrap。v1曾因E3 locator错误fail closed；v2只修正locator并
+增加role-aware结构检查，其他语义与v1 parsed-JSON等同，manifest为`6fa185e1…b07f3f0`。canonical smoke
+完成5/5；用户盲审15个auto-adopted turn为14 TP/1 FP，precision 0.9333、Wilson CI
+`[0.7018,0.9881]`，通过预注册门槛。
+
+formal run `e5_turn_credit_20260823_082012` 从SFT fresh启动。基础设施在train step138后中断，最新完整
+checkpoint为125；旧126–138全部归档并hash，从125恢复。首次恢复暴露validator错误地要求全run单一wrapper
+proof；按用户批准增加严格checkpoint-bound proof segment/ledger后再次从125恢复并重算126–200，冻结launcher
+hash和treatment未变。最终completion gate验证：200个连续step、102,400条trajectory、363,350个turn、
+两个proof segment恰在125/126边界切换、UID/formula/span/mask mismatch=0、wrapper restored、step-200
+model/optimizer/scheduler-RNG/DataLoader checkpoint可读。旧或受控停止区间未混入canonical曲线。
+
+### 8.3 Performance：early更快，final无增益
+
+| Step | 0 | 25 | 50 | 75 | 100 | 125 | 150 | 175 | 200 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| E3 | 0.60 | 0.67 | 0.67 | 0.70 | 0.73 | 0.73 | 0.74 | **0.77** | **0.76** |
+| E5 | 0.61 | 0.69 | **0.73** | **0.73** | **0.74** | **0.75** | 0.71 | 0.70 | **0.76** |
+
+E5的0–100 normalized AUC为0.70625，对E3的0.67625提高3pt；首次达到0.70/0.73都在step50，
+E3分别为75/100。0–200 AUC只剩+0.005625，E5在150/175反而落后3/7题，最终同为76/100。
+逐题配对为5 fixed、5 new、71 unchanged-correct、19 unchanged-failed；accuracy delta为0，question-level
+bootstrap 95% CI `[-0.06,0.06]`。所以证据支持“早期更快”，不支持“最终更强”。
+
+训练稳定性没有病态：E5 entropy `0.1945–0.2906`，PPO KL约`−1.08e−4–1.09e−4`，全部finite。
+中后期掉点不是NaN/KL explosion；需要结合行为目标解释。
+
+### 8.4 Mechanism：correction生效，但诱导over-calling
+
+90,498/102,400（88.38%）trajectory满足冻结mixed-quality定义。按五类issue配额和
+`sha256(run,step,trajectory_uid,sample_id)`稳定抽30条：ambiguous、budget/truncation、no-tool/final、
+parser/execution、successful-but-unused/mentioned各6条。每条保留`A_traj/s_t/s̄_t/correction/A_turn`、
+visible result、evidence、span与mask；不按reward或改善方向挑选。
+
+全量机制统计为：
+
+- 213,403个`s_t=1` turn中99,996个获正correction、113,407个因组内同位置相同而保持；没有负向违约；
+- 47,806个非no-tool问题turn中41,444个获负correction、6,362个保持；没有正向违约；
+- native E3 counterfactual在102,400条trajectory内均保持同轨迹所有turn的`A_traj`相同。
+
+这证明E5没有退化成E3 identity或接线空开关。然而行为代价非常大：
+
+| 训练轨迹指标 | E3 | E5 |
+|---|---:|---:|
+| mean calls | 0.9627 | **2.5509** |
+| 4-call fraction | 2.71% | **44.05%** |
+| repeated-code trajectory | 2.02% | **39.71%** |
+| trivial-code trajectory | 0.17% | **5.60%** |
+| per-call execution success | 80.53% | **91.01%** |
+| truncation | 1.70% | **3.42%** |
+| error recovery | 41.17%（5427/13183） | 40.98%（6752/16477） |
+
+E5学会了更多且单次更成功的调用，却没有学会更强的错误后恢复。position-aligned规则会把同位置的
+final/no-tool turn和adopted tool turn比较；重复调用并在下一轮复述同一结果又容易满足文本adoption evidence。
+因此“更多调用”成为获得正相对credit的捷径，而不需要提高outcome。
+
+### 8.5 Paired failure transition
+
+冻结taxonomy下，E3/E5各有24个failure。conditional fix为5/24=0.2083，95% CI
+`[0.0500,0.3913]`；new failure为5/76=0.0658，CI`[0.0135,0.1282]`。5个fixed包括3个semantic、
+1个execution error、1个result misread；5个new包括4个semantic和1个result misread。
+
+primary分布更能防止“label消失=问题解决”的误读：execution-error从3降到0，但只有1题变正确，另2题迁移
+为semantic miss；truncation和low-precision各从1降到0，但两题仍错，只是迁移到semantic/result-misread。
+semantic miss总体由6增至12，boxed/verifier由6增至7。fixed panel中E5有93/100条4-call overuse secondary
+tag，E3仅2/100。
+
+48条failure先组成不含checkpoint role的blind packet，再由Codex逐条manual adjudication并回连role index。
+这不是独立human audit，报告明确保留该限制。category分母最大只有6，CI宽；没有任何failure class足以声称
+“已解决”。完整matrix与逐题证据见`reports/03_badcase_taxonomy.md`。
+
+### 8.6 最终结论、限制与面试叙事
+
+M6的结论是mixed/negative：**Tier-A turn credit让早期学习更快，却没有提高final accuracy，并强烈诱导
+repeated/maximum-budget tool use。** 更细粒度不是充分条件；credit signal本身必须与真实state/value对齐。
+
+这个否定性结果受单seed、fixed-100、最多四次调用、position alignment、heuristic noise和固定β=0.5限制。
+按预注册纪律没有为挽救结果调β、换adoption定义、追加seed、做Tier B/GiGPO、启动E7或提前跑M7。
+值得再试的条件是更长horizon、真实agent状态、能区分信息增益与重复复述的step signal，并需要独立新计划。
+
+面试叙事的核心不是“自研方法涨点”，而是三层因果链：token/turn ledger证明correction确实生效；early AUC
+证明它改变学习速度；paired failures和over-calling证明这种局部credit没有转化为最终能力，并暴露heuristic
+的可套利方向。这比只报一个持平final更能回答研究问题。
+
+证据索引：`plans/M6.md`、`reports/02_main_results.md`、`reports/03_badcase_taxonomy.md`、
+`rl/runs/e5_turn_credit_20260823_082012/analysis/`、`rl/m6_failure_adjudications.jsonl`。
+
+## 9. 路线图与当前状态
+
+**当前**：M6/E5 Tier A已经完整验收，结论为早期更快、final持平、over-calling显著。M5 的E6、E4-A、
+E4-B仍保持既有阶段验收；E7只是完成设计审查并被主动defer，未实现、未失败、未取消。
+
+**接下来**：停在M6完成边界。只有用户另行决定后，才可选择恢复E7专项批准或进入M7四checkpoint全量
+评测；两者本次均未启动。M7启动前必须用frozen v2语义version并validate E5 step-200 locator，不能混用
+旧validation与新full-panel generation。
 
 **风险登记簿**（活跃项）：
 - DataLoader worker 收尾被杀已在 M4 smoke 复现并以 `dataloader_num_workers=0` 消除；后续
   长跑沿用并继续监控；
 - NFS checkpoint 已由 M4/M5 的多个约 21 GB 恢复点和两次真实 pod recovery 验证，但中断可能
   留下半写目录；仍以 atomic tracker 为唯一恢复依据并先归档重算区间；
-- 当前磁盘仅余约 170 GiB（96% used），E7 raw candidate evidence 与正式 checkpoints 启动前必须
-  重新预算，不能通过删除历史正式 run 腾空间；
+- formal completion gate记录分析前磁盘余量约189 GiB；未来E7/M7启动前仍须现场重算，不能依赖该快照
+  或通过删除历史正式run腾空间；
 - E7 与 pin veRL `fit()` 强耦合，当前按用户决定 defer 到 M6/E5 之后；未来获专项批准后用 upstream
   SHA、差分测试和 resume ledger 防止无声漂移；
 - 5090 本地链路待用户复跑 smoke test（不阻塞服务器侧进度）。

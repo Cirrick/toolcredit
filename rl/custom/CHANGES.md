@@ -67,3 +67,17 @@
   This preserves partial checkpoint-write evidence and prevents a resume from
   silently overwriting it. Complete tracked checkpoints and training behavior
   are unchanged.
+
+## [M6 / E5 Tier A] turn-level advantage correction
+
+- **状态**：2026-08-22 按获批 M6 Tier-A计划和 exact runtime boundary实现；没有修改 veRL
+  site-packages，也没有复制 `TaskRunner.run()` 或 `RayPPOTrainer.fit()`。
+- **AgentLoop 子类**：`TurnCreditAgentLoop` 继承 M4 loop，只在原生状态机 hook中记录 assistant policy
+  token span、masked tool span、execution status和 model-visible post-truncation tool text。adoption candidate
+  只来自实际编码的 visible text；raw stdout为 audit-only且不进入 `s_t`。
+- **优势扩展**：`turn_advantage.compute_turn_credit_data` 先调用 pin veRL原生 GRPO，验证同轨迹 native
+  `A_traj`广播、UID/group/span/mask守恒，再仅对 assistant policy span增加冻结的
+  `0.5 * (s_t - s_bar_t)`；tool return和padding保持 0。
+- **trainer boundary**：E5专用 Ray `TaskRunner` 在 driver生命周期内临时包裹模块级
+  `ray_trainer.compute_advantage` 和 `RayPPOTrainer._log_rollout_data`，用 source hash、proof ID和
+  `try/finally` fail-closed；E3 launcher/config不导入该 wrapper。回退只需使用 E3入口。

@@ -1,5 +1,6 @@
 """Tests for the trace->SFT-example replay tokenizer (M3). Run: python -m pytest sft/ -v"""
 
+import asyncio
 import json
 import os
 
@@ -8,6 +9,49 @@ import pytest
 from sft.trace_tokenizer import MODEL_PATH, assistant_text_from_message, trace_to_example
 
 PROBE_TIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "probe", "trajectories_tir.jsonl")
+
+
+class _InlineExecutorLoop:
+    """Keep deterministic replay tokenization out of deadlocking worker threads."""
+
+    def run_in_executor(self, executor, function, *args):
+        del executor
+        future = asyncio.get_running_loop().create_future()
+        try:
+            future.set_result(function(*args))
+        except BaseException as exc:
+            future.set_exception(exc)
+        return future
+
+
+@pytest.fixture(autouse=True)
+def deterministic_replay_executor(monkeypatch):
+    import sft.trace_tokenizer as trace_module
+    import verl.experimental.agent_loop.tool_parser as tool_parser_module
+
+    original_builder = trace_module._build_replay_loop
+    test_event_loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(test_event_loop)
+
+    def build_inline(*args, **kwargs):
+        loop = original_builder(*args, **kwargs)
+        inline_loop = _InlineExecutorLoop()
+        loop.loop = inline_loop
+        monkeypatch.setattr(tool_parser_module, "get_event_loop", lambda: inline_loop)
+        tool = loop.tools["code_interpreter"]
+        original_fn = tool.fn
+
+        async def async_tool(**parameters):
+            return original_fn(**parameters)
+
+        tool.fn = async_tool
+        tool.is_async = True
+        return loop
+
+    monkeypatch.setattr(trace_module, "_build_replay_loop", build_inline)
+    yield
+    asyncio.set_event_loop(None)
+    test_event_loop.close()
 
 
 @pytest.fixture(scope="module")

@@ -17,6 +17,7 @@ outputs/
 # data artifacts (JSONL 数据与预测产物不入库，schema 与生成脚本入库)
 data/**/*.jsonl
 eval/**/*.jsonl
+!eval/diagnostic_panel_v1.jsonl
 sft/**/*.jsonl
 
 # misc
