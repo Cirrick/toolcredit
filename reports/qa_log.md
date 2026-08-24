@@ -259,3 +259,94 @@ invalid=1, score=1.0`”，也可能出现“工具执行失败但最终正确�
 `env/sandbox.py:87-128`、`rewards/verifier.py:99-119`、`rewards/format_reward.py:6-10`、
 `rewards/composite_reward.py:38-67`、`rl/custom/reward.py:28-72`、
 `rl/monitor_run.py:40-61`、`rl/custom/test_m4_adapters.py`。
+
+---
+
+## Q11（2026-08-21，M5 显存与吞吐复盘）：veRL 的训练/rollout 显存为何交替变化？offload、SGLang batch 和 micro-batch 分别是什么？36 GB 单卡如何适配？
+
+**答**：先看结论：当前单卡采用 colocated/hybrid-engine 式复用——SGLang rollout 与 FSDP
+actor 不是各自永久占一块 HBM，而是在同一张 GPU 上轮流成为主要使用者。`nvidia-smi` 的进程
+显存是某一时刻的驻留/预留量，能辅助判断当前阶段，却不能据此推断时间占比，也不等于“有效
+张量”大小；CUDA context、allocator cache、CUDA graph 和 workspace 也会计入。
+
+本次观察到的两个稳定截面正好展示了这种切换：
+
+| 截面 | actor/Ray worker | SGLang scheduler | 其他 Python | 合计 | 判读 |
+|---|---:|---:|---:|---:|---|
+| 训练侧活跃 | 43,024 MiB | 1,410 MiB | 596 MiB | 约 44.0 GiB | SGLang cache 已释放/休眠，actor 正在做 log-prob 或更新 |
+| rollout 活跃 | 8,868 MiB | 91,086 MiB | 596 MiB | 约 98.2 GiB | actor 状态大部下放，SGLang 权重、KV cache 与推理工作区已唤醒 |
+
+第二个截面所在 MIG instance 总容量为 146,210 MiB，仍余约 44.6 GiB，因此这两次观察本身没有
+显示 OOM 或显存泄漏。SGLang 的约 89 GiB 绝大部分也不能解释成模型权重：Qwen3-1.7B 的 BF16
+裸权重约 `1.7B × 2 bytes ≈ 3.4 GB`，额外空间主要是大量并发长序列的 KV cache、CUDA graph、
+attention workspace 和预留池。显存占用大也不代表该阶段耗时一定更长。
+
+**offload 是“暂时搬走”，不是删除或压缩。** 当前 actor 开启 `param_offload=true` 和
+`optimizer_offload=true`，reference 也开启参数 offload；暂时不用的参数、Adam 状态等移到主机
+内存，需要计算时再分块搬回 HBM。一个 GRPO step 的简化生命周期是：
+
+```text
+actor 参数/优化器下放 → 唤醒 SGLang、同步最新权重 → rollout 并维护 KV cache
+       → 释放 rollout cache/SGLang sleep → actor/ref 参数按需回迁
+       → old/ref log-prob → reward/advantage → actor forward/backward/update
+       → 将新 actor 权重同步给 SGLang → 下一 step
+```
+
+训练时除了约 3.4 GB 的模型权重，还可能同时出现梯度、激活、Adam 一阶/二阶状态、old/ref
+log-prob 临时张量和 allocator cache，所以 1.7B 模型仍可占数十 GiB。rollout 时不需要梯度和训练
+激活，actor worker 因 offload 降到约 8.7 GiB，空出的空间交给 SGLang KV cache。配置
+`free_cache_engine=true` 正是为了在两个阶段之间释放/恢复 rollout cache。
+
+**实际时间分布要看 timing，而不是显存截图。** E4-A 前 149 step 平均每步 169.2 秒：rollout
+生成 63.1 秒（37.3%），actor 更新 61.3 秒（36.2%），reference log-prob 24.1 秒（14.2%），
+old log-prob 18.1 秒（10.7%）。所以只比生成与反向更新时两者接近；把 old/ref log-prob 算入
+训练侧后，训练侧约 61%、rollout 约 37%。这也说明 PLAN 中“rollout 占 70%+”是预算估计，
+当前实测不是 70%。
+
+**当前 attention 口径不是 Hugging Face `flash_attention_2`。** veRL 默认值已被
+`actor_rollout_ref.model.override_config.attn_implementation=sdpa` 覆盖，训练模型走 PyTorch
+SDPA；已安装的 `flash_attn` 包只被 veRL 的 padding/unpadding helper 硬依赖。PyTorch SDPA 在
+条件合适时仍可能内部选择 fused/flash SDP kernel，但这不等于显式使用 FlashAttention-2。
+rollout 则走 SGLang/sgl-kernel 的推理路径，不受这个 Hugging Face attention 字段直接控制。
+
+**三类 batch 必须分开理解：**
+
+1. `data.train_batch_size=64` 是每个 GRPO update 的 64 个不同 prompt；`rollout.n=8` 是每个
+   prompt 的 8 条组内采样，因此每步收集 `64 × 8 = 512` 条轨迹。它们决定有效训练数据和 GRPO
+   组统计，随意改小会改变优化方差、采样预算和实验可比性。
+2. `max_num_seqs=1024` 是 SGLang 同时运行/调度的序列数上限，不表示当前必有 1024 条；
+   `max_num_batched_tokens=8192` 是一次模型执行最多调度的 token 总数，不是单条回答长度或整步
+   token 总量。prefill 时 8 条各 1000-token 的 prompt 就接近 8192；decode 时 512 条活跃序列
+   每条各生成一个 token，只贡献约 512 batched tokens。降低这两个上限会减少并发、KV cache 或
+   单次 forward 峰值，但通常降低吞吐，且 SGLang 的静态预留池未必按相同比例下降。
+3. `ppo_micro_batch_size_per_gpu=4` 是训练时一次真正送进单张 GPU 做 forward/backward 的样本数；
+   一个较大的 mini-batch 会拆成多个 micro-batch，逐个反向并累积梯度后再完成相应更新。
+   `log_prob_micro_batch_size_per_gpu=4` 同理用于分块计算 old/ref log-prob，通常只拼接输出、不做
+   反向。micro-batch 从 4 降到 1 可明显降低激活/临时张量峰值，固定的权重和 runtime 开销不会
+   下降，因此显存不会严格变成四分之一；代价是更多小 forward/backward 和更低吞吐。
+
+一个便于理解的例子：把 512 条轨迹看成 512 份订单。`max_num_seqs` 是餐厅同时接待的座位数，
+`max_num_batched_tokens` 是厨房每一轮最多处理的食材份量，二者只决定这些订单如何排队完成；
+micro-batch 是训练后厨一次端上操作台做“前向+反向”的盘数。减少座位或每次上台的盘数可以
+降低峰值空间，但只要最终仍处理同样 512 份订单并正确累积结果，有效 batch 可以保持不变。
+
+**36 GB 单卡的优先适配顺序是先改执行切分，再改实验语义。** 对 1.7B 模型可先保持
+`train_batch_size=64, n=8`，将 actor/ref/rollout log-prob micro-batch 从 4 降到 1，保留已有的
+parameter/optimizer/reference offload、gradient checkpointing、remove padding 和
+`free_cache_engine=true`；再把 SGLang `gpu_memory_utilization` 从 0.5 调到约 0.35–0.4，并把
+`max_num_seqs` 限到 128/256、`max_num_batched_tokens` 限到约 4096。这样主要牺牲吞吐而尽量不改
+GRPO 的 64×8 统计语义。
+
+若仍 OOM，再依次考虑 activation offload；用同一冻结 actor snapshot 将每个 prompt 的 8 条采样
+拆成 4+4、合并完整 8 条后才算组内 advantage 并只更新一次；最后才缩短 response 3072→2048、
+减小 train batch、把 `n=8` 改成 4，或使用 LoRA/量化/更小模型。前两项主要改变执行方式，后几项
+会改变截断率、有效样本量、GRPO 组统计或训练容量。尤其不能“先生成 4 条并更新，再生成后 4
+条并更新”，那会变成两个 `n=4` group，后半还来自更新后的 policy，不再等价于原实验。
+
+对本项目 M5 而言，batch、`n`、响应长度和 rollout 配置是 E3/E4/E6 可比性的冻结项；36 GB
+适配若改变它们，应作为单独硬件 recipe 记录并重新建立对应 baseline，不能与 GH200 正式曲线
+冒充严格同配置比较。
+
+**证据**：`rl/configs/e4a_exec_only.yaml`、
+`rl/runs/e4a_exec_only_20260821_040632/resolved_config.yaml`、
+`rl/runs/e4a_exec_only_20260821_040632/metrics.json`、`environment.md:46-54`、`PLAN.md:269-301`。
