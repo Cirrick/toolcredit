@@ -25,6 +25,7 @@
 | M4 E3 GRPO baseline | ✅ 完成（2026-08-20） | 标准轨迹级 GRPO 完成 200/200 step；固定 MATH500-100 greedy pass@1 **0.60→0.76**（峰值 0.77），KL、entropy 与长度曲线健康；训练截断、工具错误和格式无效率均下降。五件套、step-200 完整 checkpoint 与 74 项测试验收通过（详见 [plans/M4.md](plans/M4.md)） |
 | M5 E6 no-mask / E4 shaping / E7 filtering | 🚧 阶段验收：E6、E4 完成；E7 主动 deferred（2026-08-22） | **E6** 80/80 step，实际有 4.662% loss token 来自 tool return，但 fixed panel 未出现灾难性退化；**E4-A** exec-only 与 **E4-B** joint shaping 均完成 200/200，final pass@1 为 0.77/0.76（E3 0.76），early AUC 为 0.66625/0.68500（E3 0.67625）。exec bonus 明显增加调用和 hacking candidates；budget penalty 只小幅缓解，最终能力无稳定收益。E7 设计审查已完成，用户有意 defer 到 M6/E5 完成之后；不是实现失败或取消，M5 不 tag（详见 [plans/M5.md](plans/M5.md)、[E7 review](plans/M5_E7_IMPLEMENTATION_REVIEW.md)） |
 | M6 E5 turn-level credit | ✅ 完成（2026-08-24） | E5 `β=0.5` 完成 200/200；fixed-100 **early AUC 0.70625 vs E3 0.67625（+3pt）**，但 final 同为 **0.76**，paired 为 5 fixed / 5 new（accuracy delta 95% CI `[-0.06,0.06]`）。机制按设计分开 useful/problem turn，但 mean calls `0.963→2.551`、4-call `2.71%→44.05%`、重复代码 `2.02%→39.71%`：结论为“早期更快、最终无增益、明显 over-calling”。30 条 mixed-quality audit、100题 paired taxonomy、10k bootstrap与完整 recovery proof均验收（详见 [reports/02_main_results.md](reports/02_main_results.md)、[reports/03_badcase_taxonomy.md](reports/03_badcase_taxonomy.md)、[plans/M6.md](plans/M6.md)） |
+| M7 unified evaluation与项目综合 | ✅ 完成并验收（2026-08-25） | canonical raw/scored均 **15,200/15,200**，0 missing/duplicate/conflict/infra。FULL760 greedy raw→SFT→E3→E5为 **.561→.605→.733→.722**；E3→E5 paired Δ=−.0105，95% CI `[−.0368,.0158]`，sampled也无收益。E5却把4-call从E3的1.3%推到**92.9%**（sampled 1.2%→**97.2%**），且四source均出现：M6的over-calling/no-endpoint-gain泛化，M7不能验证early-speed。E3为最强endpoint；E5定性为credit-signal/proxy gaming，E4是更干净的reward-shaping exploitation。用户已批准最终文档与acceptance artifacts，并授权completion commit/tag `m7`（详见 [main results](reports/02_main_results.md)、[taxonomy](reports/03_badcase_taxonomy.md)、[reward exploitation](reports/04_reward_hacking.md)、[interview outline](reports/interview_outline.md)、[plans/M7.md](plans/M7.md)） |
 
 ## 复现
 
@@ -104,8 +105,19 @@ conda run --no-capture-output -n toolcredit python -m analysis.plot_m6 \
 ```
 
 正式 E5 的摘要与机器可读证据位于
-`rl/runs/e5_turn_credit_20260823_082012/summary.md` 和同目录 `analysis/`。M7 freeze v2保持不变；
-E5 checkpoint role由 M6 completion manifest解析，未来启动M7前仍需按冻结规则version evaluator locator。
+`rl/runs/e5_turn_credit_20260823_082012/summary.md` 和同目录 `analysis/`。
+
+M7 canonical run是只读证据。以下命令只验证既有hash与分析单测，不启动generation、scoring、training或模型加载：
+
+```bash
+(cd eval/runs/m7_unified_eval_20260824_201032 && sha256sum --quiet -c hashes.sha256)
+(cd eval/runs/m7_unified_eval_20260824_201032 && sha256sum --quiet -c analysis_hashes.sha256)
+PYTHONDONTWRITEBYTECODE=1 conda run --no-capture-output -n toolcredit \
+  python -m pytest -q -p no:cacheprovider analysis/test_m7_analysis.py
+```
+
+主结果数字分别来自run内`metrics/pass_at_k.json`、`metrics/tool_behavior.json`、
+`transitions/bootstrap.json`与`taxonomy/audit_metrics.json`；不要从报告文本反向重建分母。
 
 ## M4 训练稳定性监控与异常处置
 

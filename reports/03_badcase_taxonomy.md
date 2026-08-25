@@ -1,7 +1,7 @@
-# Bad-case taxonomy — M6 E3→E5 paired analysis
+# Bad-case taxonomy — M6 fixed panel and M7 full-panel transitions
 
-本报告只完成 M6 预注册的 E3→E5 fixed MATH500-100 机制对照。M7 才会按同一 frozen v2 protocol 对
-raw/SFT/E3/E5 和 760 题 full panel 全量重新生成；本次没有提前运行 M7。
+本报告先保留M6预注册的E3→E5 fixed MATH500-100机制对照，再报告M7在760题full panel上的三段冻结
+paired transition。M6与M7使用不同canonical输出和分母；以下不会把两者混算。
 
 ## 协议与裁决
 
@@ -108,3 +108,101 @@ category分母为0或≤6。M7必须按 frozen v2 bundle 对 raw/SFT/E3/E5 全�
 - `rl/runs/e5_turn_credit_20260823_082012/analysis/paired_failure_private_index.json`
 - `rl/m6_failure_adjudications.jsonl`
 - `eval/diagnostic_taxonomy_v1.json`
+
+## M7 frozen full-panel taxonomy workflow
+
+M7对15,200条strict-scored trajectory运行`toolcredit_failure_taxonomy_v1`：10,085条correct的primary为null，
+5,115条wrong各有且仅有一个coarse primary，unclassified为0。全量proposal见canonical run的
+`taxonomy/coarse_proposals.jsonl`与`coarse_metrics.json`；这些是frozen deterministic proposals，不自动等于
+人工语义真值。
+
+盲审packet用stable hash在每个role×setting最多取24条wrong，共192条；packet不含checkpoint role、stage、
+direction或sample index，随后才通过`private_index.json`回连。reviewer记录为
+`manual_codex_agent_adjudication`，`independent_human_audit=false`，不能冒充独立human audit。总体proposal
+agreement为151/192 = 78.65%，uncertain 48/192 = 25.0%。唯一系统性confusion是41条
+`budget_exhaustion_or_truncation → tool_correct_semantic_or_constraint_miss`：这些轨迹在后续重复调用耗尽预算前
+已经给出boxed-but-wrong答案，所以truncation并未“直接阻止完成”，不满足冻结taxonomy rule 1。
+
+| Role / setting | Agreement | 科学使用边界 |
+|---|---:|---|
+| Raw greedy / sampled | 24/24 / 24/24 | 可描述coarse proposal与迁移，但audit仍是分层抽样而非prevalence estimator |
+| SFT greedy / sampled | 24/24 / 24/24 | 同上 |
+| E3 greedy / sampled | 24/24 / 22/24 | 同上；sampled保留两条边界不确定性 |
+| E5 greedy / sampled | **6/24 / 3/24** | **不得科学解释coarse category prevalence或E3→E5 category migration** |
+
+因此E5的正确/错误、工具调用、termination和四格paired outcome仍是exact machine fact；但E5大量失败被自动
+归为budget/truncation，而blind adjudication认为不少已先发生semantic wrong。后文有意不把E5 coarse label
+迁移写成机制结论。完整confusion、uncertain flag与evidence pointer见`taxonomy/audit_metrics.json`和
+`taxonomy/adjudications.jsonl`。
+
+## 三段paired outcome transition
+
+Greedy是primary diagnostic，sampled matched-index是secondary/exploratory。四格顺序均为fixed / new /
+unchanged-correct / unchanged-failed：
+
+| Transition | Greedy（N=760） | Greedy Δ [95% CI] | Sampled（N=3040） | Sampled Δ [95% CI] |
+|---|---:|---:|---:|---:|
+| Raw→SFT | 109 / 75 / 351 / 225 | +.0447 [.0105, .0789] | 451 / 307 / 1416 / 866 | +.0474 [.0276, .0671] |
+| SFT→E3 | 127 / 30 / 430 / 173 | **+.1276 [.0974, .1592]** | 533 / 142 / 1725 / 640 | **+.1286 [.1089, .1484]** |
+| E3→E5 | 47 / 55 / 502 / 156 | −.0105 [−.0368, .0158] | 195 / 208 / 2050 / 587 | −.0043 [−.0178, .0092] |
+
+Raw→SFT的coarse failure-category migration rate为greedy .3832 `[.3323,.4359]`、sampled .3971
+`[.3652,.4298]`；SFT→E3为greedy .3533 `[.3007,.4077]`、sampled .3606 `[.3248,.3966]`。
+结合高agreement的raw/SFT/E3 audit，这两段可作受限的coarse机制描述：SFT显著减少raw的no-tool与format
+failure，但增加调用；E3进一步把大量SFT failure变正确，并同时使调用更选择性、执行更可靠。任何单个小类仍
+受分母和自动proposal限制，不能宣称某类被“解决”。E3→E5虽然机器文件也计算了migration statistic，因E5
+blind agreement极低，本文**不解释该数值和category matrix**。
+
+source四格进一步防止aggregate掩盖异质性：
+
+| Transition / setting | AIME2024 | AIME2025 | GSM8K | MATH500 |
+|---|---:|---:|---:|---:|
+| Raw→SFT greedy | 1/2/1/26 | 2/0/3/25 | 37/13/119/31 | 69/60/228/143 |
+| Raw→SFT sampled | 8/7/3/102 | 11/6/3/100 | 125/70/485/120 | 307/224/925/544 |
+| SFT→E3 greedy | 3/1/1/25 | 2/3/2/23 | 17/7/149/27 | 105/19/278/98 |
+| SFT→E3 sampled | 16/2/9/93 | 19/6/8/87 | 97/50/560/93 | 401/84/1148/367 |
+| E3→E5 greedy | 1/1/3/25 | 3/2/2/23 | 8/9/157/26 | 35/43/340/82 |
+| E3→E5 sampled | 10/11/14/85 | 4/11/16/89 | 42/40/617/101 | 139/146/1403/312 |
+
+每格仍按fixed/new/unchanged-correct/unchanged-failed排序。AIME每个greedy source只有30题，不能从一两题
+差异外推；全部source-level bootstrap在`transitions/bootstrap.json`。
+
+## Stable-hash paired examples
+
+下表不按改善方向挑选：对每段greedy transition的四个cell，按
+`sha256([comparison,setting,cell,key])`字典序最小值固定选一条。raw output hash使例子可直接回到canonical
+evidence；完整路径和两侧key在`transitions/paired_rows.jsonl`。
+
+| Transition / cell | Question | Before → after primary state | selection hash | before / after output hash |
+|---|---|---|---|---|
+| Raw→SFT fixed | `gsm8k_000174` | semantic/constraint miss → correct | `00d37d5e4623` | `9341988fedbc` / `a4c2fc7a6aee` |
+| Raw→SFT new | `math500_000415` | correct → budget/truncation | `08a97f2ccf20` | `1abe6b5e99f1` / `ea977c5fed80` |
+| Raw→SFT unchanged-correct | `math500_000203` | correct → correct | `0280547551fa` | `855b76c7e371` / `9bb1401bbd7b` |
+| Raw→SFT unchanged-failed | `math500_000249` | budget/truncation → semantic/constraint miss | `0094085c5d42` | `729e9ca48ca6` / `00e6232b1aa8` |
+| SFT→E3 fixed | `math500_000415` | budget/truncation → correct | `00889ca3d604` | `ea977c5fed80` / `4424b9cc2706` |
+| SFT→E3 new | `math500_000128` | correct → semantic/constraint miss | `1445de40f485` | `9824189ba4aa` / `36c1d5a3156b` |
+| SFT→E3 unchanged-correct | `math500_000091` | correct → correct | `01a273d4048f` | `8c306baa77ce` / `a01db32afbe7` |
+| SFT→E3 unchanged-failed | `aime24_000011` | budget/truncation → semantic/constraint miss | `0076759f5bb8` | `3ae151674f61` / `4d61ffc04588` |
+| E3→E5 fixed | `math500_000400` | budget/truncation proposal → correct | `00ab045175e1` | `d2041b5d0348` / `210bfb02c461` |
+| E3→E5 new | `math500_000299` | correct → budget/truncation proposal | `0055c17689bc` | `7fe96ec3a27c` / `f652c3821d7a` |
+| E3→E5 unchanged-correct | `math500_000386` | correct → correct | `0094e42b54b7` | `188f85722d72` / `7dcdadd2a174` |
+| E3→E5 unchanged-failed | `math500_000320` | no-tool wrong → budget/truncation proposal | `02f9b2e259a0` | `6d1eb2763c40` / `cc7092445cc0` |
+
+E3→E5表中的failure名明确标为proposal，只用于定位轨迹，不用于科学迁移叙事。科学上可说的是：greedy有
+47个failure被修复，同时55个原本correct变wrong；sampled为195与208。它与M6机制ledger共同说明treatment
+改变了具体轨迹和行为，但没有产生净endpoint accuracy收益。
+
+## M7结论与限制
+
+阶段迁移不是同一种因果问题：Raw→SFT与SFT→E3描述训练阶段；E3与E5才是同起点、同训练量的recipe直接
+对照。M7在full panel验证M6的over-calling/no-endpoint-gain结论，但endpoint-only设计不能验证M6的
+faster-early-learning。sampled matched-index、AIME小分母、单seed、固定β与Codex而非独立human audit限制仍在。
+没有因CI或taxonomy不利而换seed、并类、改分母或补跑。
+
+M7 evidence pointers：
+
+- `eval/runs/m7_unified_eval_20260824_201032/taxonomy/{coarse_metrics,audit_metrics}.json`
+- `eval/runs/m7_unified_eval_20260824_201032/taxonomy/{blinded_audit_packet,adjudications}.jsonl`
+- `eval/runs/m7_unified_eval_20260824_201032/transitions/{raw_to_sft,sft_to_e3,e3_to_e5}.json`
+- `eval/runs/m7_unified_eval_20260824_201032/transitions/{paired_rows.jsonl,bootstrap.json}`
+- `eval/runs/m7_unified_eval_20260824_201032/analysis_hashes.sha256`

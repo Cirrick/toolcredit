@@ -1,0 +1,60 @@
+{
+  "config_version": "toolcredit_m7_eval_config_v1",
+  "protocol_path": "eval/diagnostic_protocol_v3.json",
+  "panel_path": "eval/diagnostic_panel_v1.jsonl",
+  "taxonomy_path": "eval/diagnostic_taxonomy_v1.json",
+  "common_tokenizer_path": "sft/checkpoints/qwen3-1.7b-sft",
+  "checkpoint_roles": {
+    "raw_base_model": "/home/jovyan/Qwen/Qwen3-1.7B",
+    "sft_start": "sft/checkpoints/qwen3-1.7b-sft",
+    "e3_grpo_baseline_step_200": "eval/checkpoints/m7_e3_grpo_baseline_step_200_hf",
+    "e5_turn_credit_step_200": "eval/checkpoints/m7_e5_turn_credit_step_200_hf"
+  },
+  "source_files": [
+    "data/processed/math500.jsonl",
+    "data/processed/aime24.jsonl",
+    "data/processed/aime25.jsonl",
+    "data/processed/gsm8k_test200.jsonl"
+  ],
+  "generation": {
+    "enable_thinking": false,
+    "prompt_suffix": " Let's think step by step and output the final answer within \\boxed{}.",
+    "max_response_tokens_total": 3072,
+    "max_user_tool_turns": 4,
+    "max_assistant_turns": 5,
+    "max_parallel_tool_calls": 1,
+    "max_tool_response_length": 512,
+    "tool_response_truncate_side": "middle",
+    "sandbox_timeout_seconds": 5.0,
+    "greedy": {
+      "do_sample": false,
+      "n": 1,
+      "temperature": 0.0,
+      "top_k": -1,
+      "top_p": 1.0
+    },
+    "sampling": {
+      "do_sample": true,
+      "n": 4,
+      "temperature": 0.6,
+      "top_k": -1,
+      "top_p": 1.0
+    }
+  },
+  "diagnostic_evidence": {
+    "greedy_paired_transitions": "primary_diagnostic",
+    "sampled_matched_index_transitions": "secondary_exploratory",
+    "sampled_guardrail": "Matched sample indices control the frozen seed but are not counterfactual trajectory identities; do not make strong causal claims from sampled matched-index transitions."
+  },
+  "bootstrap": {
+    "replicates": 10000,
+    "seed": 42,
+    "confidence_interval": "two-sided percentile 95%",
+    "resampling_unit": "question_id within source; all four sampled indices remain clustered"
+  },
+  "resource_budget": {
+    "gpu_hour_limit": 12,
+    "minimum_free_bytes_before_full_m7": 69793218560,
+    "safety_margin_bytes": 32212254720
+  }
+}

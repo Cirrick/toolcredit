@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "toolcredit_m7_trajectory_schema_v1",
+  "title": "ToolCredit M7 canonical trajectory",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "protocol_version", "schema_version", "evaluator_version", "freeze_manifest_sha256",
+    "checkpoint_role", "checkpoint_identity", "evaluation_setting", "question_id", "source",
+    "split", "stratum", "question_hash", "sample_index", "sample_seed", "prompt", "prompt_hash",
+    "messages", "response", "response_token_count", "termination_reason", "tool_metadata",
+    "infrastructure_status", "reward", "verifier_outcome", "correct", "format_ok", "invalid",
+    "truncated", "budget_exhausted", "primary_failure", "secondary_labels", "label_source",
+    "adjudication_rationale", "raw_evidence_pointer"
+  ],
+  "properties": {
+    "checkpoint_role": {"enum": ["raw_base_model", "sft_start", "e3_grpo_baseline_step_200", "e5_turn_credit_step_200"]},
+    "evaluation_setting": {"enum": ["greedy", "sampled"]},
+    "sample_index": {"type": "integer", "minimum": 0, "maximum": 3},
+    "sample_seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+    "infrastructure_status": {"const": "ok"},
+    "correct": {"type": "boolean"},
+    "format_ok": {"type": "boolean"},
+    "invalid": {"type": "boolean"},
+    "truncated": {"type": "boolean"},
+    "budget_exhausted": {"type": "boolean"},
+    "primary_failure": {"type": ["string", "null"]},
+    "secondary_labels": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "allOf": [
+    {"if": {"properties": {"correct": {"const": true}}}, "then": {"properties": {"primary_failure": {"const": null}}}},
+    {"if": {"properties": {"correct": {"const": false}}}, "then": {"properties": {"primary_failure": {"type": "string"}}}}
+  ]
+}

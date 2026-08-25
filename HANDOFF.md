@@ -2,6 +2,41 @@
 
 ## 当前状态
 
+- **M7 canonical generation、strict scoring、downstream analysis与documentation synthesis已完成并由用户
+  最终验收（2026-08-25）；completion commit与tag `m7`已获授权。** 唯一run
+  `eval/runs/m7_unified_eval_20260824_201032/`在frozen v3下完成greedy 3,040、sampled 12,160，raw/scored
+  均为exact 15,200/15,200；missing/unexpected/duplicate/conflict/infra failure均为0。full exact-key digest为
+  `c43ce719…fa8b8`，3,800个跨role pairing group与15,200个UID完整。canonical `hashes.sha256`及17项
+  downstream `analysis_hashes.sha256`均通过。
+- M7 FULL760 greedy raw/SFT/E3/E5为426/460/557/549 correct，即`.561/.605/.733/.722`。paired
+  Raw→SFT为+4.47pt、95% CI `[+1.05,+7.89]`；SFT→E3为+12.76pt `[+9.74,+15.92]`；E3→E5为
+  −1.05pt `[−3.68,+1.58]`。sampled matched-index结论同向。**E3是最强endpoint；E5无final accuracy
+  benefit。** M7 endpoint-only不能验证M6 faster-early-learning。
+- E5有强烈跨source behavioral treatment effect：E3→E5 mean calls greedy `.888→3.755`、sampled
+  `.958→3.935`；4-call `1.3%→92.9%`与`1.2%→97.2%`，四source均出现，per-call success约升至98%。
+  定性为credit-signal/proxy gaming，不自动等同classic reward hacking；E4是更干净的reward-shaping
+  exploitation案例。
+- frozen taxonomy覆盖15,200行（10,085 correct、5,115 wrong、0 unclassified）；192条stable-hash
+  checkpoint-blinded manual Codex audit不是独立human audit，总agreement 151/192。E5 agreement仅greedy
+  6/24、sampled 3/24，因此**不得科学解释E5 coarse taxonomy migration**；exact outcome/behavior/four-cell仍有效。
+  三段×两setting共11,400 paired rows与10,000次source-stratified question-cluster bootstrap齐全。
+- required docs已更新：`reports/02_main_results.md`、`03_badcase_taxonomy.md`、新建
+  `04_reward_hacking.md`与`interview_outline.md`，以及README、technical report、M7 plan、LOG/HANDOFF。
+  canonical `summary.md`因受`hashes.sha256`保护保持不变，新增`final_summary.md`记录下游结论。
+- behavioral-identity fixture通过真实veRL state machine证明M7 metadata-only loop与`ToolCreditAgentLoop`的
+  prompt/response IDs、mask、turn、metrics和baseline extras完全相同，唯一新增`turn_credit_ledger` audit
+  metadata。greedy paired transitions为`primary_diagnostic`；sampled matched-index为
+  `secondary_exploratory`并禁止强因果解释。
+- E3/E5 step-200已用pin veRL 0.8.0官方FSDP merger物化到`eval/checkpoints/`下两个唯一HF inference路径；
+  每个export为11文件、310 tensors、1,720,574,976参数。外部identity manifests分别为
+  `eval/materialization/e3_grpo_baseline_step_200.json`（`b543647a…95db1`）和
+  `eval/materialization/e5_turn_credit_step_200.json`（`78441f51…65ae3`）。
+- v3 runtime freeze状态为`FROZEN_V3_SMOKE_PASSED_AWAITING_CANONICAL_REVIEW`：66-file manifest
+  `b765ec2c…5b05a4`、protocol `c461d22b…36212`。semantic verifier证明parent v2 37-file manifest
+  `6fa185e1…07f3f0`及panel/generation/tool/verifier/taxonomy/pairing/bootstrap/data-isolation语义未变，
+  `gpu_generation_performed=false`（freeze时事实）。smoke完整保留resolved bindings、materialization manifests、32+32 shards、
+  strict scores、server/driver logs、exact closure、descriptive-only metrics与hash ledger。E5在四题smoke中20/20均到达
+  assistant-turn budget，与M6 over-calling风险一致，但不得从四题外推prevalence或performance effect。
 - **M6 / E5 Tier A 已完整验收（2026-08-24）。** formal run
   `e5_turn_credit_20260823_082012`完成200/200；status/tracker=completed/200，step-200完整checkpoint可读。
   102,400条canonical train trajectory、363,350个turn、两个checkpoint-bound wrapper proof segment全部
@@ -54,13 +89,25 @@
 
 ## 下一步（需用户另行授权）
 
-1. 当前停在M6完成边界。不要自动启动M7、E7、Tier B、额外seed或β sweep。
-2. 若用户选择M7，先基于frozen v2语义version evaluator/checkpoint locator，把E5 role绑定到
-   `rl/runs/e5_turn_credit_20260823_082012/checkpoints/global_step_200`并做role/structure/identity gate；然后
-   才能对raw/SFT/E3/E5统一运行760题评测，不能复用本次旧validation拼接四阶段主表。
-3. 若用户选择恢复E7，先重新review `plans/M5_E7_IMPLEMENTATION_REVIEW.md` 的pin源码、exact boundary、
+1. M7在completion commit/tag边界结束；不再生成或改变M7 denominator。
+2. E7、Tier B、额外seed、β sweep、post-hoc tuning和新训练仍禁止。
+3. 若用户未来选择恢复E7，先重新review `plans/M5_E7_IMPLEMENTATION_REVIEW.md` 的pin源码、exact boundary、
    compute/storage和专项授权；M6完成不自动批准E7。
 4. 保持E3/E4/E5/E6正式产物、M6 freeze与recovery archives不变；不删除checkpoint腾空间。
+
+## M7 复现与证据指针
+
+- canonical run：`eval/runs/m7_unified_eval_20260824_201032/`；计划、执行偏差与验收：`plans/M7.md`。
+- canonical closure：`metrics/completeness.json`、`metrics/full_scored_completeness.json`、`hashes.sha256`。
+- performance/behavior：`metrics/pass_at_k.json`、`metrics/tool_behavior.json`。
+- taxonomy/audit：`taxonomy/coarse_metrics.json`、`taxonomy/audit_metrics.json`、`taxonomy/adjudications.jsonl`。
+- paired/bootstrap：`transitions/{raw_to_sft,sft_to_e3,e3_to_e5}.json`、`paired_rows.jsonl`、
+  `bootstrap.json`；downstream integrity：`analysis_hashes.sha256`。
+- synthesis：`final_summary.md`、`reports/02_main_results.md`、`reports/03_badcase_taxonomy.md`、
+  `reports/04_reward_hacking.md`与`reports/interview_outline.md`。
+- 只读重验：run目录执行`sha256sum --quiet -c hashes.sha256`及
+  `sha256sum --quiet -c analysis_hashes.sha256`；分析单测使用conda `toolcredit`环境运行
+  `python -m pytest -q -p no:cacheprovider analysis/test_m7_analysis.py`。
 
 ## M6 复现与证据指针
 
@@ -104,10 +151,11 @@
 
 ## 风险与边界
 
-- M6结论仍是固定MATH500-100、greedy、n=1、单seed；完整MATH500/AIME/GSM8K四阶段泛化留给M7。
-  任何category分母≤6都标记evidence insufficient，不能外推为某类已解决。
-- E5 over-calling是主要新风险：position-aligned final/no-tool比较和visible-text adoption可能奖励重复调用/复述。
-  未来方案若修改此语义必须独立version和全套对照，不能回写M6 frozen result。
+- M7已把M6的over-calling/no-endpoint-gain扩展到完整MATH500/AIME/GSM8K与两setting，但仍是单seed、
+  fixed β和endpoint-only；不能用M7声称faster-early-learning泛化。E5 coarse taxonomy因blind agreement低不得
+  作category migration科学解释，任何小分母category也不能外推为某类已解决。
+- E5 over-calling仍是主要风险：position-aligned final/no-tool比较和visible-text adoption可能奖励重复调用/复述。
+  未来方案若修改此语义必须独立version和全套对照，不能回写M6/M7 frozen result。
 - M4 已验证 NFS 约 21 GB checkpoint 写入；JupyterHub 仍可能重启，长跑继续使用 conda
   `toolcredit` 环境中的 tmux、唯一 run name、完整 checkpoint 与低频 watcher。
 - M6 completion gate时磁盘约189 GiB free；未来任务仍须按`remaining_peak_write + 30 GiB`现场重算，

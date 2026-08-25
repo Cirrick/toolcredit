@@ -103,3 +103,28 @@ if __name__ == "__main__":
         probe_dir=os.path.join(PROJECT_DIR, "data", "probe"),
         out_path=os.path.join(ASSETS_DIR, "01_tool_gain.png"),
     )
+
+
+def plot_m7_accuracy_panel(metrics_path: str, out_path: str) -> None:
+    """Render precomputed M7 full-panel pass@1 values without redefining metrics."""
+    metrics = json.load(open(metrics_path, encoding="utf-8"))
+    roles = [
+        "raw_base_model",
+        "sft_start",
+        "e3_grpo_baseline_step_200",
+        "e5_turn_credit_step_200",
+    ]
+    labels = ["Raw", "SFT", "E3", "E5"]
+    values = [metrics[f"{role}:greedy:FULL760"]["pass@1"]["value"] for role in roles]
+    fig, ax = plt.subplots(figsize=(6.4, 4.0), dpi=150)
+    bars = ax.bar(labels, values, color=["#9aa0a6", C_COT, "#7655c9", C_TIR])
+    for bar, value in zip(bars, values, strict=True):
+        ax.annotate(f"{value:.3f}", (bar.get_x() + bar.get_width() / 2, value),
+                    xytext=(0, 4), textcoords="offset points", ha="center", fontsize=9)
+    ax.set_ylim(0, max(1.0, max(values) * 1.12))
+    ax.set_ylabel("Frozen greedy pass@1")
+    ax.set_title("M7 full 760-question panel")
+    style_axis(ax)
+    fig.tight_layout()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    fig.savefig(out_path, bbox_inches="tight", facecolor="white")

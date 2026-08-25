@@ -17,8 +17,8 @@
 | M3 | SFT 冷启动 | ✅ 2026-07-14 | Qwen3-8B 本地蒸馏 10.4k 轨迹→拒绝采样 6k→LoRA SFT：工具报错率 34%→19%、弃用率 27%→7%、格式 93%；增益 −0.101→−0.032（L5 转正、L4 平价），剩余缺口=数学能力+教师未覆盖难题=RL 的活；SFT-6k 定为全部 RL 实验统一起点 |
 | M4 | E3 GRPO baseline | ✅ 2026-08-20 | 标准轨迹级 GRPO 200 step 训稳：固定 MATH500-100 pass@1 **0.60→0.76**（峰值 0.77），KL/entropy/长度健康，工具错误、格式无效与截断均下降；建立 E5/E6 的可复现基准 |
 | M5 | E6 no-mask / E4 shaping / E7 filtering | 🚧 阶段验收 2026-08-22 | E6 与两条 E4 正式 run 已完成：no-mask 确实让 4.662% loss token 来自环境返回，但 80 step 内未出现灾难性退化；exec shaping 增加调用和 hacking candidates，budget penalty 只小幅缓解，三条 recipe 的 final pass@1 为 E3/A/B=`0.76/0.77/0.76`，无稳定最终能力收益。E7 设计审查已完成，用户主动 defer 到 M6/E5 完成之后；不是实现失败或取消，M5 不 tag |
-| M6 | E5 轮级信用分配 | ⬜ | |
-| M7 | 评测 / 分析 / 报告 | ⬜ | |
+| M6 | E5 轮级信用分配 | ✅ 2026-08-24 | M6 fixed-100显示early AUC +3pt但final同为.76；mechanism ledger证明correction生效，同时训练4-call由2.71%升至44.05%，结论为早期更快、终点无增益、明显over-calling |
+| M7 | 统一评测 / 分析 / 报告 | ✅ 2026-08-25 | canonical raw/scored 15,200/15,200且全门禁通过；FULL760 greedy raw/SFT/E3/E5=.561/.605/.733/.722。E3最强；E5无final收益但4-call达92.9%（sampled 97.2%），M6的over-calling/no-endpoint-gain跨source泛化，early-speed不能由endpoint-only M7验证 |
 
 ---
 
@@ -695,22 +695,108 @@ repeated/maximum-budget tool use。** 更细粒度不是充分条件；credit si
 证据索引：`plans/M6.md`、`reports/02_main_results.md`、`reports/03_badcase_taxonomy.md`、
 `rl/runs/e5_turn_credit_20260823_082012/analysis/`、`rl/m6_failure_adjudications.jsonl`。
 
-## 9. 路线图与当前状态
+## 9. M7 — unified endpoint evaluation与项目综合（完成并验收：2026-08-25）
 
-**当前**：M6/E5 Tier A已经完整验收，结论为早期更快、final持平、over-calling显著。M5 的E6、E4-A、
-E4-B仍保持既有阶段验收；E7只是完成设计审查并被主动defer，未实现、未失败、未取消。
+### 9.1 为什么M7是必要的
 
-**接下来**：停在M6完成边界。只有用户另行决定后，才可选择恢复E7专项批准或进入M7四checkpoint全量
-评测；两者本次均未启动。M7启动前必须用frozen v2语义version并validate E5 step-200 locator，不能混用
-旧validation与新full-panel generation。
+M6把E3/E5的训练接线、early curve、turn-level mechanism和fixed MATH500-100 paired结果闭合了，但仍可能是
+单一小panel现象。M7在任何canonical E5 output前冻结四role（raw、SFT、E3、E5）、四source
+（MATH500、AIME2024、AIME2025、GSM8K）、greedy与sampled n=4、工具预算、strict verifier、taxonomy、
+pairing和bootstrap。它不再问“训练曲线谁先到阈值”，而是问同一endpoint universe上能力和行为是否泛化。
+
+为绑定真实runtime，v3只增加checkpoint/evaluator binding，并用semantic verifier证明panel、generation、tool、
+verifier、taxonomy、pairing、bootstrap和data isolation与v2等价。行为identity fixture证明metadata ledger不改变
+已有`ToolCreditAgentLoop`的prompt/response IDs、mask、turn与metrics。E3/E5用pin veRL 0.8.0官方FSDP merger
+物化，并绑定共同SFT tokenizer/chat template；细节见`plans/M7.md`与run的`resolved_protocol.json`。
+
+### 9.2 Canonical integrity
+
+唯一run `m7_unified_eval_20260824_201032`生成greedy 3,040、sampled 12,160，共15,200条；strict-scored也为
+15,200/15,200。32个shard、3,800个四role pairing group与15,200个UID全部齐备，missing/unexpected/
+duplicate/conflict/infra failure为0，full exact-key digest为`c43ce719…fa8b8`。canonical `hashes.sha256`与
+17项downstream `analysis_hashes.sha256`均验证通过。没有resume、缩panel、换sample index或把infra failure
+计成wrong。
+
+### 9.3 Performance：E3是最强endpoint
+
+| Greedy pass@1 | Raw | SFT | E3 | E5 |
+|---|---:|---:|---:|---:|
+| MATH500 | .576 | .594 | **.766** | .750 |
+| AIME2024 | .100 | .067 | **.133** | **.133** |
+| AIME2025 | .100 | **.167** | .133 | **.167** |
+| GSM8K | .660 | .780 | **.830** | .825 |
+| **FULL760** | .561 | .605 | **.733** | .722 |
+
+source-stratified question-cluster bootstrap使用10,000次、seed42。Raw→SFT greedy accuracy delta为+.0447，
+95% CI `[.0105,.0789]`；SFT→E3为+.1276 `[.0974,.1592]`；E3→E5为−.0105
+`[−.0368,.0158]`。sampled matched-index对应+.0474 `[.0276,.0671]`、+.1286
+`[.1089,.1484]`、−.0043 `[−.0178,.0092]`。sampled pass@2/pass@4也以E3最高：FULL760
+.811/.857，E5为.802/.845。
+
+因此Raw→SFT给出modest aggregate gain，SFT→E3给出最大且跨setting稳健的stage gain，E3→E5没有final
+accuracy benefit。E3是项目当前最强endpoint stage。E3/E5是同起点、同训练量的recipe直接对照；Raw→SFT、
+SFT→E3是阶段迁移，不能混写成同一种treatment effect。greedy是primary diagnostic；sampled和AIME小分母
+结果保持secondary/exploratory。
+
+### 9.4 Behavior：E5 treatment强烈生效，但方向错位
+
+| FULL behavior | E3 greedy | E5 greedy | E3 sampled | E5 sampled |
+|---|---:|---:|---:|---:|
+| mean calls | .888 | **3.755** | .958 | **3.935** |
+| 4-call fraction | 1.3% | **92.9%** | 1.2% | **97.2%** |
+| repeated-code trajectory | 2.9% | **92.4%** | 2.5% | **95.3%** |
+| truncation | 9.6% | **100%** | 5.0% | **100.0%** |
+| per-call success | 88.1% | **98.6%** | 88.0% | **98.1%** |
+
+E5的4-call效应覆盖所有source：greedy AIME2024/AIME2025/GSM8K/MATH500为60.0%/66.7%/98.5%/
+94.2%，sampled为87.5%/90.0%/100%/97.2%。高per-call success说明不是调用语法恶化，而是成功调用、重复
+调用与visible-result复述成为易优化proxy；模型常在已有boxed文本后继续调用直到assistant-turn budget结束。
+M6训练ledger证明correction真的施加到turn上，M7则证明其behavioral treatment effect跨source/setting泛化。
+
+最严谨术语是**credit-signal/proxy gaming**，而不是自动等同classic reward hacking。E5没有像E4那样把
+execution bonus直接加进trajectory reward；E4 human-labeled constant exec、redundant repeat与unused result
+是更干净的reward-shaping exploitation闭环，见`reports/04_reward_hacking.md`。
+
+### 9.5 Failure transition与blind audit边界
+
+三段greedy四格fixed/new/unchanged-correct/unchanged-failed分别为109/75/351/225、127/30/430/173、
+47/55/502/156；sampled为451/307/1416/866、533/142/1725/640、195/208/2050/587。E3→E5有真实修复，
+但新增略多，净结果与accuracy CI一致。
+
+192条stable-hash checkpoint-blinded Codex audit总体agreement 151/192，uncertain 48/192；它不是独立human
+audit。Raw/SFT每setting24/24，E3 greedy/sampled 24/24与22/24；E5只有6/24与3/24。主要原因是自动规则把
+“先产生boxed wrong、再重复调用耗尽预算”标成budget/truncation，而manual tree要求truncation直接阻止完成。
+因此M7**不科学解释E5 coarse taxonomy migration**；E5的exact outcome、call、termination与四格transition
+仍然有效。详见`reports/03_badcase_taxonomy.md`。
+
+### 9.6 回答研究问题
+
+1. **训练效率**：M6 fixed panel支持E5 early learning更快（0–100 AUC +3pt）；M7只有endpoint，不能验证或
+   反驳这个early finding。
+2. **最终能力**：M7不支持E5超过E3；两setting点估计都略低且aggregate CI跨0，E3是最强endpoint。
+3. **行为**：E5有极强、跨source的over-calling/repetition treatment effect；更细credit确实改变policy，
+   但当前proxy没有把变化导向更好答案。
+4. **消融综合**：E6证明mask manipulation生效但80-step未出现预期灾难性退化；E4证明显式exec shaping容易
+   被低成本行为利用，budget penalty只弱缓解；E7设计审查完成后deferred，没有实现或运行。
+
+最终证据受单seed、固定β=.5、最多四次调用、position alignment与文本adoption heuristic限制。按预注册纪律
+没有为了null/negative结果追加seed、β sweep、Tier B/GiGPO、E7或post-hoc tuning。详细主表、CI、taxonomy与
+case inventory分别见`reports/02_main_results.md`、`reports/03_badcase_taxonomy.md`、
+`reports/04_reward_hacking.md`；面试短叙事见`reports/interview_outline.md`。
+
+## 10. 路线图与当前状态
+
+**当前**：M7 canonical generation、strict scoring、taxonomy、paired transition、bootstrap与要求的文档综合均
+已完成并通过机器一致性检查；用户已批准documentation与acceptance artifacts，criterion 13通过，并授权最终
+completion commit与tag `m7`。
+M5的E6、E4-A、E4-B保持阶段验收；E7仍是主动deferred，未实现、未失败、未取消。
+
+**下一步**：M7在completion commit/tag边界结束。没有获批的新实验队列；E7、extra seed、Tier B、β tuning
+和post-hoc run仍禁止，任何后续实验需要新授权。
 
 **风险登记簿**（活跃项）：
-- DataLoader worker 收尾被杀已在 M4 smoke 复现并以 `dataloader_num_workers=0` 消除；后续
-  长跑沿用并继续监控；
-- NFS checkpoint 已由 M4/M5 的多个约 21 GB 恢复点和两次真实 pod recovery 验证，但中断可能
-  留下半写目录；仍以 atomic tracker 为唯一恢复依据并先归档重算区间；
-- formal completion gate记录分析前磁盘余量约189 GiB；未来E7/M7启动前仍须现场重算，不能依赖该快照
-  或通过删除历史正式run腾空间；
-- E7 与 pin veRL `fit()` 强耦合，当前按用户决定 defer 到 M6/E5 之后；未来获专项批准后用 upstream
-  SHA、差分测试和 resume ledger 防止无声漂移；
-- 5090 本地链路待用户复跑 smoke test（不阻塞服务器侧进度）。
+- M7 blind audit对E5 coarse labels agreement低，后续引用必须保留“不解释E5 category migration”边界；
+- M7是单seed endpoint评测，不能把M6 fixed-panel early AUC外推成full-panel learning-curve结论；
+- E5 over-calling是未来step-signal设计的核心风险，但任何修正都必须新version、新计划、新对照，不回写结果；
+- E7与pin veRL `fit()`强耦合，未来如恢复仍需exact-boundary专项批准；
+- 5090本地链路待用户复跑smoke test（不阻塞服务器侧M7 review）。

@@ -1,0 +1,49 @@
+{
+  "changed_top_level_fields": [
+    "checkpoint_locator_gate",
+    "checkpoints",
+    "evaluator",
+    "frozen_at",
+    "git_head_at_freeze",
+    "protocol_version",
+    "schema_version",
+    "supersedes"
+  ],
+  "checkpoint_roles": [
+    "raw_base_model",
+    "sft_start",
+    "e3_grpo_baseline_step_200",
+    "e5_turn_credit_step_200"
+  ],
+  "closure_file_count": 66,
+  "diagnostic_evidence": {
+    "greedy_paired_transitions": "primary_diagnostic",
+    "sampled_guardrail": "Matched sample indices control the frozen seed but are not counterfactual trajectory identities; do not make strong causal claims from sampled matched-index transitions.",
+    "sampled_matched_index_transitions": "secondary_exploratory"
+  },
+  "expected_key_count": 15200,
+  "gpu_generation_performed": false,
+  "manifest_sha256": "b765ec2c121ce8bf166a5bcb43373334aeb42c1b2b796de2b02998f2a05b05a4",
+  "panel_question_count": 760,
+  "parent_v2_closure_file_count": 37,
+  "semantic_conclusion": "v3 preserves v2 panel, generation, tool, verifier, taxonomy, pairing, bootstrap, persistence, prompt, and data-isolation semantics exactly; it only resolves E5, binds role-validated inference materializations, and freezes the unified evaluator.",
+  "unchanged_frozen_semantic_fields": [
+    "bootstrap",
+    "data_isolation",
+    "file_sha256",
+    "generation",
+    "pairing_and_transitions",
+    "panel",
+    "persistence",
+    "prompt",
+    "protocol_change_rule",
+    "taxonomy",
+    "tool",
+    "verifier"
+  ],
+  "v2_manifest_sha256": "6fa185e18c17761cf9c238cb2a9754e245cda8179136e59cb69c729c9b07f3f0",
+  "v2_protocol_sha256": "a3cdf6bf98efe5c214b970e2c78b5cede9bcfa560c726f1b4394ea3b83198831",
+  "v3_manifest_sha256": "b765ec2c121ce8bf166a5bcb43373334aeb42c1b2b796de2b02998f2a05b05a4",
+  "v3_protocol_sha256": "c461d22bb5750e2986f26ce825104f5f803148573767625644d8143a5aa36212",
+  "verification": "passed"
+}

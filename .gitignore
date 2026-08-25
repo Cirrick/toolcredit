@@ -18,6 +18,7 @@ outputs/
 data/**/*.jsonl
 eval/**/*.jsonl
 !eval/diagnostic_panel_v1.jsonl
+eval/runs/
 sft/**/*.jsonl
 
 # misc
