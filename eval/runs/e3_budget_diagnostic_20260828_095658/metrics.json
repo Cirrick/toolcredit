@@ -1,0 +1,106 @@
+{
+  "budget_change": {
+    "max_assistant_turns": [
+      5,
+      7
+    ],
+    "max_user_tool_turns": [
+      4,
+      6
+    ],
+    "response_tokens": [
+      3072,
+      6144
+    ]
+  },
+  "long_budget_outcome": {
+    "correct": 16,
+    "correct_despite_truncation": 1,
+    "correct_rate": 0.22857142857142856,
+    "count": 70,
+    "fixed_by_original_exclusive_class": {
+      "assistant_or_tool_turn_limit": 2,
+      "repeated_normalized_code": 5,
+      "response_token_limit": 9
+    },
+    "fixed_by_source": {
+      "AIME2025": 2,
+      "MATH500": 14
+    },
+    "prefix_identity": {
+      "denominator": 70,
+      "matching": 17
+    },
+    "residual_subtypes": {
+      "completed_wrong_semantic": 14,
+      "persistent_assistant_or_tool_turn_limit": 2,
+      "persistent_response_token_limit": 38
+    },
+    "termination_reasons": {
+      "assistant_turn_budget": 3,
+      "final_answer": 29,
+      "response_length": 38
+    },
+    "wrong": 54
+  },
+  "original_70": {
+    "count": 70,
+    "exclusive_classes": {
+      "assistant_or_tool_turn_limit": 2,
+      "repeated_normalized_code": 10,
+      "response_token_limit": 58
+    },
+    "repeated_normalized_code": 10,
+    "source_counts": {
+      "AIME2024": 12,
+      "AIME2025": 17,
+      "GSM8K": 3,
+      "MATH500": 38
+    },
+    "stopping_mechanisms": {
+      "assistant_or_tool_turn_limit": 7,
+      "response_token_limit": 63
+    }
+  },
+  "scope": "diagnostic_only_not_m7_canonical",
+  "stable_hash_examples": {
+    "by_mechanistic_outcome": {
+      "budget_direct_wrong_to_correct": [
+        "math500_000151",
+        "math500_000126",
+        "math500_000470"
+      ],
+      "completed_wrong_semantic": [
+        "aime24_000005",
+        "math500_000296",
+        "math500_000494"
+      ],
+      "persistent_assistant_or_tool_turn_limit": [
+        "math500_000295",
+        "math500_000096"
+      ],
+      "persistent_response_token_limit": [
+        "math500_000101",
+        "aime25_000014",
+        "aime25_000024"
+      ]
+    },
+    "by_original_exclusive_class": {
+      "assistant_or_tool_turn_limit": [
+        "math500_000223",
+        "math500_000012"
+      ],
+      "repeated_normalized_code": [
+        "math500_000011",
+        "math500_000286",
+        "math500_000296"
+      ],
+      "response_token_limit": [
+        "math500_000101",
+        "aime25_000014",
+        "aime25_000024"
+      ]
+    }
+  },
+  "training_use_forbidden": true
+}

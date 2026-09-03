@@ -2,6 +2,13 @@
 
 ## 当前状态
 
+- **2026-08-28完成E3 70条budget/truncation post-hoc诊断，不训练。** 原70条按互斥机制拆为
+  response-token 58、assistant/tool-turn 2、repeated normalized code 10（正交停止信号仍为63 token、7 turn）。
+  唯一长预算run `eval/runs/e3_budget_diagnostic_20260828_095658/`仅把3072/4/5提高到6144/6/7，其他
+  prompt/model/greedy/seed/tool/verifier保持不变；16/70转正确，54仍错。54中只有14条正常结束后答错，38条
+  再次撞token上限、2条再次撞turn上限；38条中34条零工具、30条有至少三次完全相同的非短输出行，主模式是
+  verbal loop而非预算略短。诊断题永久禁止回灌训练；未来训练数据只能来自train split并重新污染检查。详细方法、
+  边界和证据见`plans/M7_BUDGET_DIAGNOSTIC.md`；diagnostic与canonical两套hash ledger均通过。
 - **M7 canonical generation、strict scoring、downstream analysis与documentation synthesis已完成并由用户
   最终验收（2026-08-25）；completion commit与tag `m7`已获授权。** 唯一run
   `eval/runs/m7_unified_eval_20260824_201032/`在frozen v3下完成greedy 3,040、sampled 12,160，raw/scored
@@ -89,8 +96,8 @@
 
 ## 下一步（需用户另行授权）
 
-1. M7在completion commit/tag边界结束；不再生成或改变M7 denominator。
-2. E7、Tier B、额外seed、β sweep、post-hoc tuning和新训练仍禁止。
+1. M7 canonical仍冻结；70题budget diagnostic只作post-hoc诊断，不改变M7 denominator，也不进入训练数据。
+2. E7、Tier B、额外seed、β sweep、post-hoc tuning、新训练和继续提高诊断预算仍禁止。
 3. 若用户未来选择恢复E7，先重新review `plans/M5_E7_IMPLEMENTATION_REVIEW.md` 的pin源码、exact boundary、
    compute/storage和专项授权；M6完成不自动批准E7。
 4. 保持E3/E4/E5/E6正式产物、M6 freeze与recovery archives不变；不删除checkpoint腾空间。

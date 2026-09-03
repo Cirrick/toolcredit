@@ -1,0 +1,106 @@
+{
+  "checkpoint_identity": {
+    "evaluator_tokenizer": {
+      "evaluator_tokenizer_path": "/home/jovyan/toolcredit/sft/checkpoints/qwen3-1.7b-sft",
+      "files": [
+        {
+          "bytes": 11422654,
+          "path": "tokenizer.json",
+          "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+        },
+        {
+          "bytes": 5404,
+          "path": "tokenizer_config.json",
+          "sha256": "443bfa629eb16387a12edbf92a76f6a6f10b2af3b53d87ba1550adfcf45f7fa0"
+        },
+        {
+          "bytes": 4168,
+          "path": "chat_template.jinja",
+          "sha256": "a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8"
+        }
+      ]
+    },
+    "inference_locator": "/home/jovyan/toolcredit/eval/checkpoints/m7_e3_grpo_baseline_step_200_hf",
+    "materialization": {
+      "export_locator": "/home/jovyan/toolcredit/eval/checkpoints/m7_e3_grpo_baseline_step_200_hf",
+      "materialization_manifest": "eval/materialization/e3_grpo_baseline_step_200.json",
+      "materialization_manifest_sha256": "b543647a661837e713c2a0bdf8b23a3a78084a60b61ad111ab0a68698c695db1",
+      "output_file_count": 11,
+      "role": "e3_grpo_baseline_step_200",
+      "source_actor_sha256": "8b7cd75fda9754194686e6a617debee81c66920aa8bae34dffd6b39017b32ff4",
+      "state": "validated",
+      "tensor_count": 310,
+      "total_parameters": 1720574976
+    },
+    "resolved_config_sha256": "254a3188aa85d062b1fc690190729f5f96ad35d3494e7f218649c9708a0e9c16",
+    "role": "e3_grpo_baseline_step_200",
+    "run_name": "e3_grpo_baseline_20260819_224555",
+    "source_actor_sha256": "8b7cd75fda9754194686e6a617debee81c66920aa8bae34dffd6b39017b32ff4",
+    "source_locator": "/home/jovyan/toolcredit/rl/runs/e3_grpo_baseline_20260819_224555/checkpoints/global_step_200",
+    "state": "validated",
+    "status_sha256": "2835bf77b52d783ad24705c7552a104c2e9bb018c9f08f3092c270427fbcdd0b",
+    "tracker_sha256": "27badc983df1780b60c2b3fa9d3a19a00e46aac798451f0febdca52920faaddf"
+  },
+  "diagnostic_config": {
+    "checkpoint_role": "e3_grpo_baseline_step_200",
+    "classification": {
+      "budget_direct_evidence": "strict verifier changes from wrong to correct under the longer budget",
+      "exclusive_precedence": [
+        "repeated_normalized_code",
+        "assistant_or_tool_turn_limit",
+        "response_token_limit"
+      ],
+      "orthogonal_behavior_tag": "repeated_normalized_code",
+      "residual_wrong_subtypes": [
+        "completed_wrong_semantic",
+        "persistent_response_token_limit",
+        "persistent_assistant_or_tool_turn_limit",
+        "other_wrong_termination"
+      ],
+      "stopping_mechanisms": [
+        "response_token_limit",
+        "assistant_or_tool_turn_limit"
+      ]
+    },
+    "config_version": "toolcredit_e3_budget_diagnostic_v1",
+    "evaluation_setting": "greedy",
+    "generation": {
+      "enable_thinking": false,
+      "greedy": {
+        "do_sample": false,
+        "n": 1,
+        "temperature": 0.0,
+        "top_k": -1,
+        "top_p": 1.0
+      },
+      "max_assistant_turns": 7,
+      "max_parallel_tool_calls": 1,
+      "max_response_tokens_total": 6144,
+      "max_tool_response_length": 512,
+      "max_user_tool_turns": 6,
+      "prompt_suffix": " Let's think step by step and output the final answer within \\boxed{}.",
+      "sandbox_timeout_seconds": 5.0,
+      "tool_response_truncate_side": "middle"
+    },
+    "parent_canonical_run": "eval/runs/m7_unified_eval_20260824_201032",
+    "parent_eval_config": "eval/m7_eval_config.json",
+    "protocol_version": "toolcredit_e3_budget_diagnostic_v1",
+    "resource_budget": {
+      "minimum_free_disk_bytes": 32212254720,
+      "minimum_free_gpu_bytes": 21474836480
+    },
+    "selection": {
+      "expected_count": 70,
+      "parent_primary_failure": "budget_exhaustion_or_truncation",
+      "sample_index": 0,
+      "training_use_forbidden": true
+    }
+  },
+  "diagnostic_config_sha256": "61b4ca541053ef43d7f3881270a68e43a955975b69132db8e6c3f59f62e71596",
+  "parent_integrity": {
+    "analysis_hashes.sha256": "787e72d549c1ad4eb5733449cd2a45b2dfcf43bf7f465cb97c4cee47a9a88f67",
+    "hashes.sha256": "491b4d66a539123d0ade1e9b37a25a9ee269207e318898dc0b9b8a91acf176f9"
+  },
+  "selection_sha256": "b1670cbe469249a068ad480aac981c5d09e26928f299128d4d662f653005bbdf",
+  "training_use_forbidden": true
+}

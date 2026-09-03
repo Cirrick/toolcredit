@@ -1,0 +1,55 @@
+{
+  "config_version": "toolcredit_e3_budget_diagnostic_v1",
+  "protocol_version": "toolcredit_e3_budget_diagnostic_v1",
+  "parent_canonical_run": "eval/runs/m7_unified_eval_20260824_201032",
+  "parent_eval_config": "eval/m7_eval_config.json",
+  "checkpoint_role": "e3_grpo_baseline_step_200",
+  "evaluation_setting": "greedy",
+  "selection": {
+    "parent_primary_failure": "budget_exhaustion_or_truncation",
+    "expected_count": 70,
+    "sample_index": 0,
+    "training_use_forbidden": true
+  },
+  "generation": {
+    "enable_thinking": false,
+    "prompt_suffix": " Let's think step by step and output the final answer within \\boxed{}.",
+    "max_response_tokens_total": 6144,
+    "max_user_tool_turns": 6,
+    "max_assistant_turns": 7,
+    "max_parallel_tool_calls": 1,
+    "max_tool_response_length": 512,
+    "tool_response_truncate_side": "middle",
+    "sandbox_timeout_seconds": 5.0,
+    "greedy": {
+      "do_sample": false,
+      "n": 1,
+      "temperature": 0.0,
+      "top_k": -1,
+      "top_p": 1.0
+    }
+  },
+  "classification": {
+    "stopping_mechanisms": [
+      "response_token_limit",
+      "assistant_or_tool_turn_limit"
+    ],
+    "orthogonal_behavior_tag": "repeated_normalized_code",
+    "exclusive_precedence": [
+      "repeated_normalized_code",
+      "assistant_or_tool_turn_limit",
+      "response_token_limit"
+    ],
+    "budget_direct_evidence": "strict verifier changes from wrong to correct under the longer budget",
+    "residual_wrong_subtypes": [
+      "completed_wrong_semantic",
+      "persistent_response_token_limit",
+      "persistent_assistant_or_tool_turn_limit",
+      "other_wrong_termination"
+    ]
+  },
+  "resource_budget": {
+    "minimum_free_gpu_bytes": 21474836480,
+    "minimum_free_disk_bytes": 32212254720
+  }
+}

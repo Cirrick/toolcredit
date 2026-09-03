@@ -192,6 +192,28 @@ E3→E5表中的failure名明确标为proposal，只用于定位轨迹，不用�
 47个failure被修复，同时55个原本correct变wrong；sampled为195与208。它与M6机制ledger共同说明treatment
 改变了具体轨迹和行为，但没有产生净endpoint accuracy收益。
 
+## E3 budget/truncation post-hoc diagnostic（2026-08-28）
+
+为检验E3 greedy中70条`budget_exhaustion_or_truncation` coarse proposal是否真的由预算直接造成，使用同一
+checkpoint、prompt、greedy seed、tool与strict verifier做了一次独立诊断，只把response/tool-turn/assistant-turn
+预算从3072/4/5提高到6144/6/7。该run不改变M7 canonical分母，70条held-out评测题永久禁止进入训练数据。
+
+原始70条的互斥机制拆分为response token 58、assistant/tool turn 2、repeated normalized code 10；正交停止信号
+则为63条response length、7条turn budget。增加预算后16条转正确（22.9%），支持预算是这些轨迹的直接原因；
+54条仍错。54条中只有14条正常给出final answer但语义错误，38条再次撞6144-token上限，2条再次耗尽turn
+budget。按用户指定的二元规则54条都属于“加预算后仍错”，但机制上后40条仍是censored trajectory，不能写成
+已经完成推理后被证明错误。
+
+逐步审阅显示，38条persistent token failure中34条没有调用工具，30条有至少三次完全相同的非短输出行，主要是
+重复解释/重新开始的verbal degeneration；两条persistent turn failure均反复尝试工具。14条completed-wrong中
+6条至少出现一次sandbox或timeout错误，其余主要为概念/代数/约束遗漏、错误使用数值结果，或工具失败后无依据
+猜答案。原始三类的修复数分别为token 9/58、turn 2/2、repeat 5/10，小分母不作总体外推。
+
+诊断rerun只有17/70与原短轨迹保持完整prefix identity，说明即使固定greedy设置仍存在serving numerical
+nondeterminism；因此16条转正确是强诊断证据，不是严格的同轨迹counterfactual continuation proof。完整方法和
+限制见`plans/M7_BUDGET_DIAGNOSTIC.md`，逐题证据见
+`eval/runs/e3_budget_diagnostic_20260828_095658/{scored,comparisons}.jsonl`。
+
 ## M7结论与限制
 
 阶段迁移不是同一种因果问题：Raw→SFT与SFT→E3描述训练阶段；E3与E5才是同起点、同训练量的recipe直接

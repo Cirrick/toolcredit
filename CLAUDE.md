@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-**当前 Milestone: M3 完成 → M4 待启动（E3 GRPO baseline，起点 sft/checkpoints/qwen3-1.7b-sft）| 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
+**当前 Milestone: M0–M7 全部完成并验收（tag `m7`，2026-08-25）；2026-08-28 完成 E3 budget/truncation post-hoc 诊断（不训练）。E7 由用户主动 defer；新训练/E7/额外 seed/β sweep 均需另行授权 | 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
 
 （每个 Milestone 完成后更新本行；会话结束更新 `LOG.md`；交接状态写 `HANDOFF.md`。）
 
