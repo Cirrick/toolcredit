@@ -2,6 +2,11 @@
 
 ## 当前状态
 
+- **2026-09-04：M8 / E5-v2 计划草案已写入 `plans/M8.md`，待用户批准；未创建任何代码、config、launcher、测试或 run。**
+  动机是 E5 v1 修正项在轨迹内不守恒（隐式稠密奖励），定量证据与推导见 `reports/qa_log.md` Q12；
+  离线套用 v2 公式已验证逐轨迹修正和精确为 0、SFT 起点附近 treatment exposure 约 14.6%（`plans/M8.md` §4，
+  即席脚本未落盘，步骤 0 需正式实现）。简历草稿在 `reports/resume_bullets.md`。
+  批准后执行顺序与逐步授权门禁见 `plans/M8.md` §8；范围外事项见 §1。
 - **2026-08-28完成E3 70条budget/truncation post-hoc诊断，不训练。** 原70条按互斥机制拆为
   response-token 58、assistant/tool-turn 2、repeated normalized code 10（正交停止信号仍为63 token、7 turn）。
   唯一长预算run `eval/runs/e3_budget_diagnostic_20260828_095658/`仅把3072/4/5提高到6144/6/7，其他
@@ -9,6 +14,8 @@
   再次撞token上限、2条再次撞turn上限；38条中34条零工具、30条有至少三次完全相同的非短输出行，主模式是
   verbal loop而非预算略短。诊断题永久禁止回灌训练；未来训练数据只能来自train split并重新污染检查。详细方法、
   边界和证据见`plans/M7_BUDGET_DIAGNOSTIC.md`；diagnostic与canonical两套hash ledger均通过。
+  该轮关于成功率、失败中间步骤、解决方向和GRPO零方差group的完整会话总结见
+  `reports/docs/grpo_failure_diagnostic_session_summary.md`。
 - **M7 canonical generation、strict scoring、downstream analysis与documentation synthesis已完成并由用户
   最终验收（2026-08-25）；completion commit与tag `m7`已获授权。** 唯一run
   `eval/runs/m7_unified_eval_20260824_201032/`在frozen v3下完成greedy 3,040、sampled 12,160，raw/scored

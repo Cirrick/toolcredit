@@ -350,3 +350,40 @@ GRPO 的 64×8 统计语义。
 **证据**：`rl/configs/e4a_exec_only.yaml`、
 `rl/runs/e4a_exec_only_20260821_040632/resolved_config.yaml`、
 `rl/runs/e4a_exec_only_20260821_040632/metrics.json`、`environment.md:46-54`、`PLAN.md:269-301`。
+
+## Q12（2026-09-04，M7 后复盘）：E5 比 E3 没有提升、还出现大量重复调用，这算不算 reward hacking？下一步该修 failure case 还是修 E5？
+
+**答**：先纠正前提：E5 不是“显著更差”，是**终点无增益 + 行为严重偏移**。M7 FULL760 greedy
+E3→E5 为 −1.05pt，95% CI `[−3.68, +1.58]` 跨 0；真正显著的是 4-call 占比 1.3%→92.9%、
+truncation 9.6%→100%。
+
+**可以叫 reward hacking，但要说清楚 hack 的是什么。** 狭义 reward hacking 指“可观测 reward 上涨而真实
+能力不涨”，E5 的 outcome reward 没有异常上涨，所以报告里保守地叫 credit-signal/proxy gaming。更准确、也
+更适合面试的说法是：**Tier-A 修正项不是零和的，等价于我在 advantage 里偷偷加了一个稠密奖励
+“成功且被后文引用的调用”，策略最大化了这个隐式奖励。** 机制上有三条证据：
+
+1. `s̄_t` 按组内同位置求均值，final/no-tool turn 的 `s_t=0` 会与其它轨迹同位置的 adopted call 比较：
+   E5 全 run 的 102,141 个 no-tool turn 中 33,663 个拿到负修正——“不调用/早停”被直接惩罚。
+2. 逐轨迹修正之和随调用次数单调：step 200 时 0/1/2/3/4 次调用的平均净修正为
+   −0.41/−0.47/−0.23/−0.05/+0.01，token 加权 shift 与调用数相关系数 0.53。这是自增强的 ratchet：
+   组内多数轨迹调到 4 次后，任何早停轨迹都会相对受罚。
+3. E5 训练中组内 `score` 零方差 group 从 25%（step 1）升到 48%（step 200）；这些 group 的 `A_traj=0`，
+   修正项是**唯一梯度**，即约一半 batch 在做与 outcome 无关的“多调用”优化。
+   （E3 的零方差比例平均 44%，同量级。）
+
+**下一步建议：优先修 E5 的设计，而不是修 E3 failure case。** 理由：E5 v1 的实验被上述混淆污染，
+目前还没有干净地回答研究问题“轨迹内重新分配信用值不值”；failure case（语言循环、报错后乱猜）
+主要是推理协议/基座能力问题，做了也不回答研究问题。E5-v2 最小改动：
+(a) 修正项在轨迹内做零和中心化（token 加权），只保留轨迹内再分配；
+(b) 只有真正发起工具调用的 turn 参与 `s̄_t`，final/no-tool turn 修正恒为 0；
+(c) AST 归一化后重复的代码和 boxed 之后的调用 `s_t=0`；
+(d) 只在 `std(score)>0` 的 group 施加修正。
+一条 200-step run（约 1.5–2 GPU 日），同协议评测。无论正负都是干净结论。
+E7（零方差过滤）与发现 3 直接相关，可作第二优先级；failure case 的循环检测作为 eval-only 对照放最后。
+
+**证据**：`rl/custom/turn_advantage.py`（`s_by_position` 按 `(uid, position)` 聚合）、
+`rl/runs/e5_turn_credit_20260823_082012/analysis/mechanism_analysis.json`
+（`correction_sign_by_adoption_status/no_tool/negative = 33663`）、
+`rl/runs/e5_turn_credit_20260823_082012/predictions/train/{1,25,50,100,150,200}.jsonl`
+（本次会话即席统计，未落盘为脚本）、`eval/runs/m7_unified_eval_20260824_201032/metrics/tool_behavior.json`、
+`reports/docs/grpo_failure_diagnostic_session_summary.md` §8。
