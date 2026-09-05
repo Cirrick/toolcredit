@@ -219,7 +219,13 @@ def _validate_segmented_proofs(
     return {"segments": segments, "recovery_event_count": len(overlays)}
 
 
-def validate_rollouts(run_dir: Path, expected_steps: int, *, recovery_aware: bool = False) -> dict[str, Any]:
+def validate_rollouts(
+    run_dir: Path,
+    expected_steps: int,
+    *,
+    recovery_aware: bool = False,
+    audit_validator: Any = _validate_audit,
+) -> dict[str, Any]:
     train_dir = run_dir / "predictions/train"
     paths = sorted(train_dir.glob("*.jsonl"), key=lambda path: int(path.stem))
     actual_steps = [int(path.stem) for path in paths]
@@ -246,7 +252,7 @@ def validate_rollouts(run_dir: Path, expected_steps: int, *, recovery_aware: boo
                 raise ValueError(f"silent audit loss in {path}")
             if row.get("turn_credit_wrapper_proof") != audit.get("wrapper_proof"):
                 raise ValueError("wrapper proof mismatch between row and audit")
-            _validate_audit(audit)
+            audit_validator(audit)
             uid = str(audit["trajectory_uid"])
             if uid in trajectory_uids:
                 raise ValueError(f"duplicate trajectory UID: {uid}")

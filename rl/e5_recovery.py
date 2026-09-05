@@ -13,12 +13,24 @@ from rl.custom.turn_advantage import WRAPPER_PROOF_KEY
 from rl.launch.e3_grpo_baseline import _sha256, archive_interrupted_attempt
 
 PROOF_DYNAMIC_FIELDS = {"proof_id", "installed", "restored", "restored_at"}
+PROOF_PREFIXES = {
+    "e5_runtime_wrapper_v1": "e5-wrapper-v1:",
+    "e5v2_runtime_wrapper_v1": "e5v2-wrapper-v1:",
+}
+LOG_MARKERS = ("TOOLCREDIT_E5_WRAPPER_ACTIVE ", "TOOLCREDIT_E5V2_WRAPPER_ACTIVE ")
+
+
+def proof_prefix_for(payload: dict[str, Any]) -> str:
+    boundary = str(payload.get("boundary_version"))
+    if boundary not in PROOF_PREFIXES:
+        raise ValueError(f"unknown wrapper boundary version: {boundary!r}")
+    return PROOF_PREFIXES[boundary]
 
 
 def validate_wrapper_proof_payload(payload: dict[str, Any]) -> dict[str, Any]:
     """Validate a runtime proof and return its experiment-invariant identity."""
     proof_body = {key: value for key, value in payload.items() if key not in PROOF_DYNAMIC_FIELDS}
-    expected = "e5-wrapper-v1:" + hashlib.sha256(
+    expected = proof_prefix_for(payload) + hashlib.sha256(
         json.dumps(proof_body, sort_keys=True).encode("utf-8")
     ).hexdigest()
     if payload.get("proof_id") != expected:
@@ -59,13 +71,13 @@ def proofs_in_train_file(path: Path) -> set[str]:
 
 def _proof_from_log(run_dir: Path, proof_id: str) -> dict[str, Any]:
     log_path = run_dir.parent / f"{run_dir.name}.log"
-    marker = "TOOLCREDIT_E5_WRAPPER_ACTIVE "
     if not log_path.is_file():
         raise FileNotFoundError(f"cannot recover archived wrapper proof without {log_path}")
     for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
-        offset = line.find(marker)
-        if offset < 0:
+        marker = next((item for item in LOG_MARKERS if item in line), None)
+        if marker is None:
             continue
+        offset = line.find(marker)
         try:
             payload = json.loads(line[offset + len(marker) :])
         except json.JSONDecodeError:

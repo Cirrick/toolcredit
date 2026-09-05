@@ -18,6 +18,7 @@
 | M4 | E3 GRPO baseline | ✅ 2026-08-20 | 标准轨迹级 GRPO 200 step 训稳：固定 MATH500-100 pass@1 **0.60→0.76**（峰值 0.77），KL/entropy/长度健康，工具错误、格式无效与截断均下降；建立 E5/E6 的可复现基准 |
 | M5 | E6 no-mask / E4 shaping / E7 filtering | 🚧 阶段验收 2026-08-22 | E6 与两条 E4 正式 run 已完成：no-mask 确实让 4.662% loss token 来自环境返回，但 80 step 内未出现灾难性退化；exec shaping 增加调用和 hacking candidates，budget penalty 只小幅缓解，三条 recipe 的 final pass@1 为 E3/A/B=`0.76/0.77/0.76`，无稳定最终能力收益。E7 设计审查已完成，用户主动 defer 到 M6/E5 完成之后；不是实现失败或取消，M5 不 tag |
 | M6 | E5 轮级信用分配 | ✅ 2026-08-24 | M6 fixed-100显示early AUC +3pt但final同为.76；mechanism ledger证明correction生效，同时训练4-call由2.71%升至44.05%，结论为早期更快、终点无增益、明显over-calling |
+| M8 | E5-v2 守恒轮级信用 | ✅ 2026-09-05 | 把 v1 修正项改为轨迹内 token 加权零和并门控零方差组：over-calling 完全消失（4-call 92.9%→0.8%、截断 100%→8.7%），FULL760 greedy .741 vs E3 .733（Δ +0.79pt，CI [−1.84,+3.42]），早期 AUC +1.87pt < 2pt → 预注册情形 A；证实 v1 失效源于非守恒隐式奖励，守恒再分配在 ≤4 轮 horizon 与 4–10% exposure 下未检出增益 |
 | M7 | 统一评测 / 分析 / 报告 | ✅ 2026-08-25 | canonical raw/scored 15,200/15,200且全门禁通过；FULL760 greedy raw/SFT/E3/E5=.561/.605/.733/.722。E3最强；E5无final收益但4-call达92.9%（sampled 97.2%），M6的over-calling/no-endpoint-gain跨source泛化，early-speed不能由endpoint-only M7验证 |
 
 ---
@@ -786,13 +787,12 @@ case inventory分别见`reports/02_main_results.md`、`reports/03_badcase_taxono
 
 ## 10. 路线图与当前状态
 
-**当前**：M7 canonical generation、strict scoring、taxonomy、paired transition、bootstrap与要求的文档综合均
-已完成并通过机器一致性检查；用户已批准documentation与acceptance artifacts，criterion 13通过，并授权最终
-completion commit与tag `m7`。
+**当前**：M8 / E5-v2（守恒轮级信用）已完成训练、协议 v4 评测与预注册判读（情形 A），见 §11；M7 保持 canonical
+完成状态。
 M5的E6、E4-A、E4-B保持阶段验收；E7仍是主动deferred，未实现、未失败、未取消。
 
-**下一步**：M7在completion commit/tag边界结束。没有获批的新实验队列；E7、extra seed、Tier B、β tuning
-和post-hoc run仍禁止，任何后续实验需要新授权。
+**下一步**：M8 在 tag `m8` 边界结束。没有获批的新实验队列；E7、extra seed、Tier B、β tuning、`|A_traj|` 缩放变体
+（`plans/M8.md` §3.4）与 post-hoc run 仍禁止，任何后续实验需要新计划与新授权。
 
 **风险登记簿**（活跃项）：
 - M7 blind audit对E5 coarse labels agreement低，后续引用必须保留“不解释E5 category migration”边界；
@@ -800,3 +800,42 @@ M5的E6、E4-A、E4-B保持阶段验收；E7仍是主动deferred，未实现、�
 - E5 over-calling是未来step-signal设计的核心风险，但任何修正都必须新version、新计划、新对照，不回写结果；
 - E7与pin veRL `fit()`强耦合，未来如恢复仍需exact-boundary专项批准；
 - 5090本地链路待用户复跑smoke test（不阻塞服务器侧M7 review）。
+
+## 11. M8 — E5-v2：守恒的轮级信用分配（完成：2026-09-05）
+
+### 11.1 动机：v1 测错了问题
+
+M7 之后复盘 E5 v1 的 ledger（`reports/qa_log.md` Q12）发现修正项 `β(s_t − s̄_t)` 在轨迹内不守恒：同位置组内基线让
+no-tool turn 受罚（33,663 次负修正）、净修正随调用数单调、在 48% 的零方差 group 里是唯一梯度。它等价于一个隐式稠密奖励
+"成功且被引用的调用"，所以 M6/M7 回答的是"隐式 shaping 值不值"，不是研究问题"轨迹内信用再分配值不值"。
+
+### 11.2 方法：只改守恒性，其余冻结
+
+E5-v2（`plans/M8.md` §3）：`c_t = β(s_t − s̃)`，`s̃` 为轨迹内 token 加权均值，`Σ c_t·n_t = 0` 逐轨迹精确；只有恰好一次成功
+解析调用的 turn 参与；AST 归一化后重复代码与 `\boxed{` 之后的调用 `s_t = 0`；组内 `score` 零方差则不修正。β=0.5、adoption
+heuristic、SFT 起点、数据、rollout、优化超参与 E3/E5-v1 相同；resolved-config diff gate 只允许 `turn_credit.*`、agent loop
+注册名与 project_name 不同。实现全部放新模块（v1 文件被 M6/M7 freeze 锁定）；Fixture F–I 手算守恒、E3 identity（单调用/零方差/
+`s` 全同逐元素相等）、重复与 boxed 条件、混合 batch；全仓 205 项测试。离线先用 v1 ledger 套 v2 公式预注册 exposure（14.6%）。
+
+### 11.3 结果
+
+- **训练**：200/200，102,400 轨迹守恒残差 ≤ 1e-13；行为门禁（后 25 step）mean calls 0.86、4-call 1.1%、repeated 0.8%、
+  截断 0.5%，全部达线；exposure 10.4% → 4.2% 衰减；fixed-100 final 0.73，AUC(0–100) 0.695（E3 0.676）。
+- **评测（协议 v4，3,800 条新增 + 复用 M7 15,200 条）**：FULL760 greedy E3 .733 / E5-v1 .722 / **E5-v2 .741**；E3→E5-v2
+  paired Δ +0.79pt，95% CI [−1.84, +3.42]；sampled pass@1 .743 / .738 / .755；greedy 4-call 1.3% / 92.9% / **0.8%**，
+  截断 9.6% / 100% / **8.7%**，mean calls 0.89 / 3.76 / **0.60**。
+- **预注册判读**：情形 A（无差异）。早期 AUC 差 +1.87pt 距情形 B 仅 0.13pt，不作事后调整。
+
+### 11.4 面试叙事
+
+1. 先把 negative result 变成 mechanism：不是"E5 没用"，而是 v1 的修正项结构等价于 reward shaping，且能定量指出它在哪里
+   注入梯度（零方差 group）。
+2. 用最小反事实检验机制：只改守恒性，行为偏移消失、终点不降，说明因果链是"非守恒 → 隐式奖励 → over-calling"，不是
+   "轮级 credit → over-calling"。
+3. 诚实地报告功效边界：守恒再分配只在多调用轨迹上有作用面，策略在 ≤4 轮预算下快速单调用化，exposure 4–10%，所以 A
+   是"未检出"而非"无用"；后续要看 longer horizon 或 |A_traj| 缩放变体（§3.4，未授权）。
+4. 工程纪律：freeze 闭包让 v1 文件不可改 → v2 全部新模块；pod 中断 → recovery ledger 双段 proof；磁盘门槛 → 按 M6 公式
+   现场重算的 resume 分支；每一步偏差都在 `plans/M8.md` §12 留痕。
+
+证据：`plans/M8.md` §12/§13、`reports/02_main_results.md` M8 节、`reports/04_reward_hacking.md` M8 补记、
+`eval/runs/m8_e5v2_eval_20260905_134737/metrics/m8_headline.json`。

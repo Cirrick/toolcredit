@@ -94,3 +94,22 @@ credit若proxy语义不对齐，也会造成同样危险但机制不同的行为
 - E3/E4 comparison：`rl/runs/m5_e3_e4_comparison/e3_e4a_e4b_comparison.json`
 - M7 E3/E5 accuracy/behavior：`eval/runs/m7_unified_eval_20260824_201032/metrics/`
 - M7 paired/bootstrap：`eval/runs/m7_unified_eval_20260824_201032/transitions/`
+
+## M8 补记：E5 v1 的机制根因与守恒反事实（2026-09-05）
+
+M8 把 E5 v1 的"credit-signal/proxy gaming"从现象推进到机制并做了反事实检验。v1 的修正 `β(s_t − s̄_t)` 以组内**同位置**
+均值为基线，因此（a）final/no-tool turn 的 `s_t = 0` 被拿去和别的轨迹同位置的 adopted call 比较，102,141 个 no-tool turn
+中 33,663 个拿到负修正——"早停"直接受罚；（b）逐轨迹净修正随调用数单调上升，组内多数轨迹调到 4 次后任何早停轨迹相对受罚，
+形成自增强 ratchet；（c）组内 `score` 零方差 group 从 step 1 的 25% 升到 step 200 的 48%，这些 group `A_traj = 0`，修正项是
+唯一梯度。三条合起来等价于在 advantage 里加入了"成功且被引用的调用"的隐式稠密奖励——这是 reward shaping 的另一种形式，
+只是没写在 reward 函数里。
+
+反事实 E5-v2 只把修正项改成轨迹内 token 加权零和（并去掉重复代码、boxed 之后的调用与零方差组），其余与 v1 逐项相同：
+4-call 从 92.9% 回到 0.8%、评测截断从 100% 回到 8.7%、mean calls 0.60（低于 E3 的 0.89），终点 .741 vs E3 .733（CI 跨 0）。
+因此 v1 的行为偏移可以归因于修正项的非守恒结构，而不是轮级 credit 的粒度。对术语的影响：v1 应称为**由非守恒 credit 修正诱发的
+隐式 reward-shaping exploitation**，与 E4 的显式 exec bonus 同属一类，只是 proxy 藏在 advantage 里；E5-v2 则说明守恒的再分配
+不产生这类套利，但在 ≤4 轮 horizon 与低 exposure 下也未检出收益。
+
+- M8 训练侧证据：`rl/runs/e5v2_conserved_credit_20260905_003041/analysis/formal_completion_gate.json`（行为门禁、exposure）
+- M8 评测侧证据：`eval/runs/m8_e5v2_eval_20260905_134737/metrics/tool_behavior.json`、`transitions/`
+- v1 机制统计：`reports/qa_log.md` Q12、`analysis/e5v2_offline_counterfactual.json`

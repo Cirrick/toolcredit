@@ -387,3 +387,18 @@ E7（零方差过滤）与发现 3 直接相关，可作第二优先级；failur
 `rl/runs/e5_turn_credit_20260823_082012/predictions/train/{1,25,50,100,150,200}.jsonl`
 （本次会话即席统计，未落盘为脚本）、`eval/runs/m7_unified_eval_20260824_201032/metrics/tool_behavior.json`、
 `reports/docs/grpo_failure_diagnostic_session_summary.md` §8。
+
+## Q13（2026-09-05，M8 评测阶段）：为什么现在是"v4"？v2、v3、v4 有什么区别？
+
+**答**：v* 是同一条评测协议 `eval/diagnostic_protocol_v*.json` 的连续版本，不是模型版本。每版由一份 sha256 清单锁住
+闭包，后一版 `supersedes` 前一版，并有语义校验器证明"除声明的新增外逐字段相同"。**v2**（M6 前）锁"评什么、怎么评"：
+760 题 panel、生成参数、工具/截断、verifier、taxonomy v1、配对与 bootstrap 定义、数据隔离、SFT/E3 身份，以及 E5 v1 训练代码
+（E5 角色留空）；E5 v1 与 E5-v2 训练的 preflight 都校验它。**v3**（M7 前）在 v2 的 37 文件不动的前提下加 29 个：填入 E5 v1
+step-200 角色、E3/E5 的 HF 物化 manifest、evaluator 代码与配置；M7 的 15,200 条 canonical 轨迹在 v3 下生成。**v4**（M8）在 v3
+的 66 文件不动的前提下只加 E5-v2 角色、其物化、M8 evaluator 文件与"复用了哪些 M7 产物"的记录；只为 E5-v2 生成 3,800 条，
+其余四角色直接复用 M7。因为 v3 把 evaluator 文件（`eval/generate.py` 等）hash 锁死且硬编码四角色，M8 的扩展全部放新文件
+（`eval/m8_e5v2_eval.py` 等），并用等价测试证明 v4 评分在 M7 原始轨迹上逐字段复现 M7 评分。**面试角度**：这是"协议先冻结、
+改动必须 bump 版本并证明语义不变"的纪律，它让 E5-v2 能与两周前的 E3/E5-v1 结果直接配对比较。
+
+**证据**：`eval/build_diagnostic_freeze_v{2,3,4}.py`、`eval/verify_diagnostic_freeze_v{3,4}_semantics.py`、
+`eval/test_m8_e5v2_eval.py::test_v4_scoring_reproduces_canonical_m7_scored_row`、`plans/M8_DIAGNOSTIC_FREEZE_V4.md`。

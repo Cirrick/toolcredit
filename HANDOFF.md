@@ -2,6 +2,17 @@
 
 ## 当前状态
 
+- **2026-09-05：M8 / E5-v2（守恒轮级信用）完成，tag `m8`；预注册判读 §9.2 情形 A。** 训练
+  `rl/runs/e5v2_conserved_credit_20260905_003041/`（200/200，step 147 pod 中断后从 125 恢复，双段 proof + recovery ledger，
+  `analysis/formal_completion_gate.json`）；评测 `eval/runs/m8_e5v2_eval_20260905_134737/`（协议 v4，E5-v2 3,800/3,800，
+  复用 M7 15,200 条，`metrics/m8_headline.json` 含机械判读）。FULL760 greedy E3/E5-v1/E5-v2 .733/.722/.741，E3→v2 Δ +0.79pt
+  CI [−1.84,+3.42]；4-call 92.9%→0.8%、截断 100%→8.7%、mean calls 0.60；early AUC +1.87pt < 2pt。结论：v1 的行为漂移源于
+  非守恒隐式奖励；守恒再分配在 ≤4 轮 horizon、exposure 10.4%→4.2% 下未检出增益。代码全在新模块（v1 冻结文件未动）：
+  `rl/custom/turn_advantage_v2.py`、`rl/custom/turn_credit_v2_agent_loop.py`、`rl/launch/e5v2_conserved_credit.py`、
+  `rl/validate_e5v2_run.py`、`eval/checkpoints_v4.py`、`eval/build_diagnostic_freeze_v4.py`、
+  `eval/verify_diagnostic_freeze_v4_semantics.py`、`eval/m8_e5v2_eval.py`、`scripts/m8/`。计划/偏差/验收：`plans/M8.md` §12/§13。
+  **待用户决定**：磁盘 66 GiB 可用，历史产物删除（M8 run 目录 63 GiB 含 3 个 checkpoint，只有 step-200 被物化引用）留待用户裁定；
+  §3.4 `|A_traj|` 缩放变体、E7、额外 seed 均未授权。
 - **2026-09-04：M8 / E5-v2 计划草案已写入 `plans/M8.md`，待用户批准；未创建任何代码、config、launcher、测试或 run。**
   动机是 E5 v1 修正项在轨迹内不守恒（隐式稠密奖励），定量证据与推导见 `reports/qa_log.md` Q12；
   离线套用 v2 公式已验证逐轨迹修正和精确为 0、SFT 起点附近 treatment exposure 约 14.6%（`plans/M8.md` §4，

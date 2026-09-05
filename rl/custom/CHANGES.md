@@ -81,3 +81,29 @@
 - **trainer boundary**：E5专用 Ray `TaskRunner` 在 driver生命周期内临时包裹模块级
   `ray_trainer.compute_advantage` 和 `RayPPOTrainer._log_rollout_data`，用 source hash、proof ID和
   `try/finally` fail-closed；E3 launcher/config不导入该 wrapper。回退只需使用 E3入口。
+
+## [M8 / E5-v2] conserved within-trajectory turn credit
+
+- **状态**：2026-09-04/05 按获批 `plans/M8.md` 实现；没有修改 veRL site-packages。**v1 文件一字未动**：
+  `turn_advantage.py`、`turn_credit_agent_loop.py`、`rl/launch/e5_turn_credit.py`、`rl/analyze_e5.py` 均被
+  M6/M7 freeze v2/v3 清单 hash 锁定（§11 只读），因此 v2 全部放在新模块，只 import 不改写。
+- **优势扩展**：`turn_advantage_v2.compute_conserved_turn_credit_data` 先调用 pin veRL 原生 GRPO，再对
+  `credit_eligible`（恰好一次成功解析的调用）turn 加 `0.5·(s_t − s̃)`，`s̃` 为轨迹内 token 加权均值；
+  `|T|<2`、组内 `score` 零方差或 `s_t` 全相同时逐元素等于原生 GRPO。每条轨迹断言
+  `Σ c_t·n_t = 0`（1e-6），并断言 gated 轨迹张量与原生完全相等。复用 v1 的 span/mask/UID 校验函数。
+- **AgentLoop 子类**：`turn_credit_v2_agent_loop.TurnCreditV2AgentLoop` 继承 v1 loop，仅覆写 `_ledger`
+  的版本字符串并在 `_finalize_ledger` 末尾追加 §3.2 条件 3（AST 归一化哈希重复，复用
+  `rl/analyze_e4.py:normalize_code`）和 4（此前 assistant 文本含 `\boxed{`），写入 `s_t_v1`、
+  `repeat_of_turn`、`after_boxed`、`credit_eligible`、`adoption_status_v2`；ledger schema/adoption 版本为
+  `toolcredit_turn_ledger_v2` / `toolcredit_adoption_v2`。生成、工具执行、masking、v1 heuristic 不变；
+  独立注册名 `toolcredit_turn_credit_v2_agent`。
+- **trainer boundary**：`rl/launch/e5v2_conserved_credit.py:ConservedTurnCreditTaskRunner` 与 v1
+  `TurnCreditTaskRunner.run` 逐 hook 相同（临时包裹 `ray_trainer.compute_advantage` 与
+  `RayPPOTrainer._log_rollout_data`，`try/finally` 恢复），仅 proof 前缀 `e5v2-wrapper-v1:`、log marker
+  `TOOLCREDIT_E5V2_WRAPPER_ACTIVE` 与 payload（`boundary_version = e5v2_runtime_wrapper_v1`）不同。
+  preflight/freeze bundle/pin veRL hash 复用 v1 函数。
+- **配置门禁**：`config_diff_gate` 要求 E5-v1→E5-v2 只在 `turn_credit.*`、agent loop 注册与
+  project_name 上不同，E3→E5-v2 与 v1 的允许集合完全一致。smoke 用 `save_freq=-1` 不留 checkpoint。
+- **验证器（非冻结文件）**：新增 `rl/validate_e5v2_run.py` 重算每条轨迹修正、守恒残差、零方差 identity 与
+  §3.2 不变量；`rl/e5_recovery.py` 按 `boundary_version` 选择 proof 前缀并识别两种 log marker；
+  `rl/validate_e5_canonical_smoke.validate_rollouts` 增加可插拔 `audit_validator`（默认 v1 不变）。

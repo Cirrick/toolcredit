@@ -218,3 +218,74 @@ AIME2024、AIME2025、GSM8K与greedy/sampled均出现。M7不能验证M6“early
 
 M7证据入口：`metrics/pass_at_k.json`、`metrics/tool_behavior.json`、`metrics/completeness.json`、
 `transitions/bootstrap.json`、`taxonomy/audit_metrics.json`和`analysis_hashes.sha256`，均位于canonical run目录。
+
+## M8 E5-v2：守恒的轮级信用分配（canonical，2026-09-05）
+
+### 动机与设计变更
+
+M6/M7 的 E5 v1 修正项 `β(s_t − s̄_t)` 以组内同位置均值为基线，在轨迹内不守恒：no-tool turn 中 33,663 次拿到
+负修正，逐轨迹净修正随调用数单调（step 200 时 0/1/2/3/4 次调用为 −0.41/−0.47/−0.23/−0.05/+0.01），并在
+组内 `score` 零方差的 group（step 200 时 48%）里成为唯一梯度。它测的是"隐式稠密奖励值不值"。E5-v2 只改四点
+（`plans/M8.md` §3）：基线改为轨迹内 token 加权均值 `s̃`，`Σ_t c_t·n_t = 0` 逐轨迹精确成立；只有恰好一次调用的
+turn 参与；AST 归一化后重复的代码与 `\boxed{` 之后的调用 `s_t = 0`；组内 `score` 零方差不施加修正。β、adoption
+heuristic、起点、数据、rollout 与优化超参与 E3/E5-v1 完全相同（resolved-config diff 仅 `turn_credit.*`、agent loop
+注册名与 project_name）。
+
+### 训练侧
+
+run `rl/runs/e5v2_conserved_credit_20260905_003041/`，200/200 step，102,400 轨迹 / 170,501 turn，守恒残差
+≤ 1.1e-13，零方差组无非零修正；step 147 遭 pod 中断，从 step-125 checkpoint 恢复，proof 分两段、recovery ledger
+完整。预注册行为门禁（后 25 step）全部达线：mean calls 0.856（E3 0.96、E5-v1 2.55）、4-call 1.13%（2.7%、44.1%）、
+repeated-code 0.76%（2.0%、39.7%）、训练截断 0.51%（1.7%、3.4%）。treatment exposure（收到非零修正的轨迹）从
+前 25 step 的 10.4% 衰减到后 25 step 的 4.2%，多调用轨迹占比从 24% 降到 14%。fixed-100 greedy 曲线
+`0.61/0.66/0.73/0.74/0.69/0.72/0.75/0.73/0.73`，AUC(0–100) 0.695（E3 0.676，E5-v1 0.706），final 0.73（E3/E5-v1 0.76）。
+
+### 评测（协议 v4，只新增一个 role）
+
+`eval/runs/m8_e5v2_eval_20260905_134737/`：protocol v4 在 v3 的 66 文件闭包上仅加 E5-v2 角色/物化/M8 evaluator 绑定，
+语义校验器证明 panel/generation/tool/verifier/taxonomy/pairing/bootstrap 字段与 v3 逐字段相同；E5-v2 3,800/3,800，
+raw/SFT/E3/E5-v1 复用 M7 canonical（157 个产物 hash 复用前重验）。
+
+| role | greedy FULL760 | MATH500 | AIME24 | AIME25 | GSM8K | sampled pass@1 / @2 / @4 |
+|---|---|---|---|---|---|---|
+| E3 | 557/760 = .733 | .766 | .133 | .133 | .830 | .743 / .811 / .857 |
+| E5-v1 | 549/760 = .722 | .750 | .133 | .167 | .825 | .739 / .802 / .845 |
+| **E5-v2** | **563/760 = .741** | .772 | .200 | .200 | .825 | **.755 / .818 / .859** |
+
+| 配对（10k source 分层 bootstrap） | setting | fixed / new | Δ | 95% CI |
+|---|---|---|---|---|
+| E3 → E5-v2（primary） | greedy | 55 / 49 | +0.79pt | [−1.84, +3.42] |
+| E5-v1 → E5-v2（secondary） | greedy | 61 / 47 | +1.84pt | [−0.79, +4.47] |
+| E3 → E5-v2 | sampled（exploratory） | — | +1.22pt | [−0.10, +2.53] |
+| E5-v1 → E5-v2 | sampled（exploratory） | — | +1.64pt | [+0.36, +2.93] |
+
+greedy per-source Δ：MATH500 +0.60pt [−2.80, +4.20]、AIME2024 +6.67pt [−6.67, +20.00]、AIME2025 同、GSM8K −0.50pt
+[−4.50, +3.50]，均跨 0。
+
+| greedy FULL760 行为 | E3 | E5-v1 | E5-v2 |
+|---|---|---|---|
+| mean tool calls | 0.888 | 3.755 | **0.604** |
+| 4-call 占比 | 1.3% | 92.9% | **0.8%** |
+| 评测截断率 | 9.6% | 100% | **8.7%** |
+| repeated-code 轨迹 | 2.9% | 92.4% | **1.5%** |
+| per-call 执行成功率 | 88.1% | 98.6% | 90.6% |
+| no-tool 轨迹占比 | — | — | 48.6% |
+
+sampled FULL760：E5-v2 calls 0.616、4-call 0.6%、截断 3.2%（E3 0.958 / 1.2% / 5.0%；E5-v1 3.935 / 97.2% / 99.97%）。
+
+### 预注册判读：情形 A
+
+按 `plans/M8.md` §9.2：greedy Δ CI 跨 0，且 fixed-100 早期 AUC 差 +1.87pt < 2pt → **情形 A（无差异）**；行为线全过、
+exposure 10.4% ≥ 8%，前置条件成立，条款不触发。早期 AUC 差距离情形 B 的 2pt 线仅 0.13pt，按预注册规则不作事后调整。
+写法（§9.2 A）："≤4 轮 horizon 下组内 outcome 方差已足够，轨迹内再分配不增加信息"，并补两点：
+
+1. **v1 的失效机制被反事实证实**：同起点、同训练量、只把修正项改成守恒，over-calling 完全消失（4-call 92.9% → 0.8%、
+   截断 100% → 8.7%），终点不比 E3 差。v1 的行为漂移与早期 +3pt 来自非守恒修正项等价的隐式奖励，而非轮级信用本身。
+2. **功效受 exposure 衰减限制**：守恒的再分配只在"同一轨迹有 ≥2 次可区分调用"时起作用；策略在 ≤4 轮预算下很快收敛到
+   单次调用（评测中 48.6% 轨迹零调用），后期只有 4.2% 轨迹被修正。因此 A 只能写"在此 horizon 与 exposure 下未检出增益"，
+   不能外推为"信用分配无用"。sampled E5-v1→E5-v2 CI 不跨 0 是 secondary 证据，按 M7 guardrail 不作因果主张。
+
+M8 证据入口：`eval/runs/m8_e5v2_eval_20260905_134737/metrics/m8_headline.json`（含机械判读）、`metrics/pass_at_k.json`、
+`metrics/tool_behavior.json`、`transitions/e3_to_e5v2*.json`、`transitions/e5v1_to_e5v2*.json`、`taxonomy/coarse_metrics.json`、
+`hashes.sha256`；训练侧 `rl/runs/e5v2_conserved_credit_20260905_003041/analysis/formal_completion_gate.json`；
+离线反事实 `analysis/e5v2_offline_counterfactual.json`；协议 `eval/diagnostic_protocol_v4.json`、`eval/diagnostic_freeze_v4.sha256`。

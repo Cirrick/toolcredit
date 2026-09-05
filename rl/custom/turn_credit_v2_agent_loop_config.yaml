@@ -1,0 +1,2 @@
+- name: toolcredit_turn_credit_v2_agent
+  _target_: rl.custom.turn_credit_v2_agent_loop.TurnCreditV2AgentLoop
