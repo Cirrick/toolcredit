@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-**当前 Milestone: M0–M8 全部完成（M8 E5-v2 守恒轮级信用，tag `m8`，2026-09-05，预注册判读情形 A）；2026-08-28 完成 E3 budget/truncation post-hoc 诊断。E7 由用户主动 defer；新训练/E7/额外 seed/β sweep/§3.4 变体均需另行授权 | 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
+**当前 Milestone: M0–M9 全部完成（M9 E3-NoTool 无工具对照臂，tag `m9`，2026-09-07，预注册判读情形 B：工具未提供额外准确率）；M10（E7 零方差过滤）为草案待批准。待办：验证关闭 FSDP CPU offload（见 HANDOFF 下一步第 5 条）。E7/M10、额外 seed、β sweep、§3.4 变体、CoT-SFT 对称起点仍需另行授权 | 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
 
 （每个 Milestone 完成后更新本行；会话结束更新 `LOG.md`；交接状态写 `HANDOFF.md`。）
 

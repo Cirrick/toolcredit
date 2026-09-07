@@ -2,6 +2,52 @@
 
 ## 当前状态
 
+- **2026-09-07：M9 / E3-NoTool 完成（步骤 0–5），预注册判读情形 B。**
+  训练 `rl/runs/e3notool_grpo_20260906_220907`（200/200；step 150 遭容器组级 OOM，用户批准后从 step-125 恢复，
+  `recovery/resume_from_125_20260907_140752/`；`analysis/formal_completion_gate.json` 全绿，102,400 条、tool 计数与
+  prompt schema 逐条为 0、标签吐出率 1/102,400）。评测 `eval/runs/m9_notool_eval_20260907_175726`（协议 v5，
+  manifest `5238d08e…b2e4d` 107 文件；15,200/15,200；复用 M7 157 + M8 30 个 canonical 产物并重验 hash）。
+  **primary Δ = E3-NoTool − E3 = −0.92pt，CI [−3.55, +1.71] → 情形 B**。
+  分解：SFT→E3 的 +12.76pt = 6.05（不再被工具拖累）+ 4.74（推理提升，[+2.11,+7.50]）+ 1.97（工具边际价值，跨 0）。
+  工具增益 raw −13.95 → SFT −6.05 → E3 −1.97pt；优势只在 MATH L4/L5（+7.03/+2.99pt）。
+  四个 notool 角色 `tool_tag_emitted` 全 0/760。训练侧零方差组 44.6%→56.3%（E3 26.6%）→ M10 动机。
+  文档：`reports/02_main_results.md` M9 节、`01_tool_gain.md` M9 附录、technical report §12、README 总表、qa_log Q21。
+  用户另行授权的 step-125 敏感性分析 `eval/runs/m9_step125_sensitivity_20260907_191332`（exploratory，不入协议）：
+  step-125 .721 vs step-200 .724 vs E3 .733，step200→step125 Δ −0.26pt CI [−2.50,+1.97]——fixed-100 上的峰不复现，判读不敏感。
+  **重要**：所有 200-step run 的"pod 中断"根因已查明（qa_log Q17），待办见"下一步"第 5 条。
+
+
+- **2026-09-06：HER 可行性讨论完成，仅文档。** `reports/qa_log.md` Q16 记录优先方向：从 train 失败轨迹提取独立验证的成功子任务，重标注后辅助 SFT，再考虑与 E3 配方结合。建议先固定抽样审计 100–200 条；本次仅检查 E3 首行日志 schema 与 M8 指标，未做候选挖掘、训练、生成或评测。E3 日志是拼接文本和汇总指标，完整片段恢复尚未验证；独立数学验证、衍生题去重和等 token 对照是后续设计要点。未批准 HER 实验或改变 M9/M10 状态；M9 formal 仍待授权。复核入口：`reports/qa_log.md` Q16、`rl/custom/turn_advantage_v2.py`、`rl/runs/e3_grpo_baseline_20260819_224555/predictions/train/1.jsonl`。
+
+- **2026-09-06：M9 步骤 0–2 完成，步骤 3（200-step formal）未启动，等用户检查后再授权。**
+  `plans/M9.md` 已批准；状态、偏差（§11 四条）、验收（§12 第 1/2 行）已回填。训练侧实现全部是新文件且**没有对 veRL
+  做任何 patch/子类/包裹**：`rl/configs/e3notool_grpo.yaml`、`rl/launch/e3notool_grpo.py`、
+  `rl/validate_e3notool_run.py`、`scripts/m9/{run_e3notool.sh,watch_e3notool.py,watch_e3notool.sh}`，
+  测试 `rl/launch/test_e3notool_config.py`（Fixture J/L）、`rl/custom/test_m9_notool_reward.py`（K）、
+  `rl/test_validate_e3notool_run.py`（N）。treatment 就是把工具拿掉：`multi_turn.enable=false` +
+  veRL 原生 `single_turn_agent` + `agent_loop_config_path=null`；E3→E3-NoTool 的 resolved-config diff
+  **精确等于**预注册的 5 条路径。全仓 first-party 回归 `pytest -q --ignore=third_party` **237 passed**。
+  preflight `analysis/m9_preflight.json`：磁盘 227.91 GiB 可用（下面 66 GiB 一条已确认是过期快照，
+  未删除任何历史产物），formal 门槛 61.63+30=91.63 GiB，GPU 单卡 142.2 GiB 空闲。
+  smoke `rl/runs/e3notool_grpo_smoke_20260906_213322/`（5/5，`save_freq=-1` 无 checkpoint，
+  `analysis/smoke_gate.json` 全绿）：2,560 条 = 5 步 × 64 组 × 8；tool 计数/截断/parse error 逐条恒 0；
+  prompt 无 schema marker（10 条解码 prompt 落盘 `analysis/prompt_audit.{jsonl,md}`）；`<tool_call>` 标签
+  吐出率训练 5 步与验证 step 0/5 **全为 0**（起点根本不吐标签，§4 门禁与 §2.2 的起点债务担忧都比预期轻）；
+  固定 panel 0.62→0.67；response length 931→857 token、3072 截断率 3.5%→1.4%、entropy 0.211→0.205、
+  KL 2.7e-4→6.2e-4；组内零方差 44.7%。同 seed step-1 描述性对照（**非结论**）：E3 acc .447 / format .842 /
+  截断 10.6% / mean calls 1.59 / 零方差 26.6%，E3-NoTool .488 / .963 / 0 / 0 / 46.9%。
+  单步约 134 s，200 步预计约 8 h（计划 §9 估 6–10 h）。**未做**：评测侧 `eval/checkpoints_v5.py`、
+  `eval/build_diagnostic_freeze_v5.py`、`eval/verify_diagnostic_freeze_v5_semantics.py`、
+  `eval/m9_notool_eval.py`、`scripts/m9/run_m9_eval.sh` 与 Fixture M —— 顺延到步骤 4 前（v5 freeze 必须
+  绑定尚不存在的 step-200 materialization），已记入 §11。
+
+- **2026-09-06：完成秋招简历 bullets 提炼。** 新稿 `reports/resume_bullets_autumn.md` 含四条可投递表述与证据口径，核对 M7/M8 metrics、SFT 数据和轮级信用实现；区分 MATH500 +17.2pt 与 FULL760 +12.8pt，避免将 v2 多项联合改动解释为单一因素因果证明。仅文档整理，未启动训练或评测；M9/M10 仍为待批准草案。
+
+- **2026-09-06：M8 后复盘完成；`plans/M9.md` 已批准并开工（见上条），`plans/M10.md`（E7 零方差过滤）仍为草案待批准。**
+  当时未创建任何代码、config、launcher、测试或 run。qa_log Q14 记录了 M8 判读、"工具是否提高准确率"的因果空洞（无 CoT-RL 对照）、
+  E5-v2 缩小自身作用面的新观察（零调用轨迹 48.6% vs E3 26.6%）与下一步排序（M9 先行，M10 需 §8 步骤 0 专项批准）。
+  新增只读脚本 `analysis/tool_use_conditional_accuracy.py` 及 JSON 输出（相关性证据，有选择偏置）。df 于 2026-09-06 显示
+  约 229 GiB 可用，与下一条的 66 GiB 不一致，启动任何 run 前需现场复核。
 - **2026-09-05：M8 / E5-v2（守恒轮级信用）完成，tag `m8`；预注册判读 §9.2 情形 A。** 训练
   `rl/runs/e5v2_conserved_credit_20260905_003041/`（200/200，step 147 pod 中断后从 125 恢复，双段 proof + recovery ledger，
   `analysis/formal_completion_gate.json`）；评测 `eval/runs/m8_e5v2_eval_20260905_134737/`（协议 v4，E5-v2 3,800/3,800，
@@ -119,6 +165,16 @@
 3. 若用户未来选择恢复E7，先重新review `plans/M5_E7_IMPLEMENTATION_REVIEW.md` 的pin源码、exact boundary、
    compute/storage和专项授权；M6完成不自动批准E7。
 4. 保持E3/E4/E5/E6正式产物、M6 freeze与recovery archives不变；不删除checkpoint腾空间。
+5. **待办（用户 2026-09-07 指定，M9 全部跑完后执行）：验证"关掉 offload"。** 背景见 `reports/qa_log.md` Q17 与
+   `plans/M9.md` §11（2026-09-07 行）：所有 200-step formal run 都因容器 `memory.max`=128 GiB + `memory.oom.group=1`
+   在 step 138–172 被整 pod 杀死；CPU 内存主要来自 veRL FSDP offload 的 pinned 池（actor worker 内约 45 GB 的
+   `/dev/zero` 共享映射，只增不还）与 actor worker 匿名内存逐步增长，checkpoint 保存再叠加瞬时峰值。
+   验证内容：把 actor `fsdp_config.param_offload`/`optimizer_offload` 与 ref `fsdp_config.param_offload` 置 false
+   （GH200 142 GB 显存，sglang 占 0.5 后剩 71 GB；1.7B 的 fp32 参数+梯度+Adam+bf16 ref 常驻约 31 GB），跑一次
+   5-step smoke：(a) 同 seed 对照 E3 前 5 步 reward/loss 曲线在浮点噪声内一致；(b) 显存峰值不 OOM（GPU OOM 会在
+   日志抛异常，不像 CPU 组级 OOM 无声消失）；(c) `scripts/m9/memwatch.sh` 记录的 cgroup 曲线变平；(d) 单步时间对比。
+   通过后它成为 resolved config 相对 E3 的三条新 diff：加进 M10+ 的 diff gate 允许集合，并在对应计划 §11 记为
+   "纯基础设施差异、不影响数值"。**M9 这条 run 不改**。备选：200 步在 step 100 计划性分段，用现有 resume 机制续跑。
 
 ## M7 复现与证据指针
 

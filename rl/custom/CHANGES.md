@@ -107,3 +107,33 @@
 - **验证器（非冻结文件）**：新增 `rl/validate_e5v2_run.py` 重算每条轨迹修正、守恒残差、零方差 identity 与
   §3.2 不变量；`rl/e5_recovery.py` 按 `boundary_version` 选择 proof 前缀并识别两种 log marker；
   `rl/validate_e5_canonical_smoke.validate_rollouts` 增加可插拔 `audit_validator`（默认 v1 不变）。
+
+## [M9 / E3-NoTool] 无工具 GRPO 对照臂
+
+- **状态**：2026-09-06 按获批 `plans/M9.md` 实现步骤 0–2；**没有对 veRL 做任何 patch、子类或包裹**。
+  这是本项目第一个"零框架改动"的实验臂：treatment 就是把工具从 prompt 与 rollout 里拿掉。
+- **agent loop 切换**：`rollout.agent.default_agent_loop` 由自定义 `toolcredit_agent` 换成 veRL 原生
+  `single_turn_agent`（`verl/experimental/agent_loop/single_turn_agent_loop.py`），并把
+  `agent_loop_config_path` 置空，因此 `rl/custom/tool_agent_loop.py` 与整套 turn-credit 模块在本臂中
+  完全不被加载。原生 loop 调用 `AgentLoopBase.apply_chat_template(messages)` 时 `tools` 取默认值 `None`，
+  prompt 里不会出现 `code_interpreter` schema；`response_mask` 恒为 1（无 tool return token 需要 mask）。
+  该文件的 SHA256 已加入 `rl/launch/e3notool_grpo.py:M9_PINNED_VERL_HASHES`，启动前重验。
+- **配置**：`rl/configs/e3notool_grpo.yaml` 由 `e3_grpo_baseline.yaml` 复制，只改
+  `multi_turn.enable`、`agent.default_agent_loop`、`agent.agent_loop_config_path`、`trainer.project_name`。
+  `multi_turn.tool_config_path` 有意保留 E3 原值——在 `enable: false` + 原生单轮 loop 下它不产生任何
+  prompt 或 rollout 效果，保留它可以把 E3→E3-NoTool 的 resolved-config diff 压到预注册的最小集合。
+- **launcher（新文件，E3 launcher 未动）**：`rl/launch/e3notool_grpo.py` 复用冻结 E3 launcher 的
+  `compose_config` / `validate_run_target` / `launch` / recovery archive，自带校验是因为 E3 的
+  `validate_m4_config` 硬断言 `max_user_turns == 4` 且要求 agent-loop 配置文件存在。结构 diff 工具
+  （`diff_paths` / `resolved`）与磁盘 resume 估计直接从 M8 launcher import，保证跨 milestone 门禁语义一致。
+- **reward 不变**：仍是 `rl/custom/reward.py:compute_score`。无 agent-loop tool metadata 时四个计数字段
+  缺省为 0，四次调用的 `truncated` 规则永不触发，`format_ok` 退化为"存在可解析的 `\boxed{}`"。
+- **验证器（新文件）**：`rl/validate_e3notool_run.py`。本臂没有 turn-credit ledger，因而没有
+  trajectory UID，完整性改由 rollout JSONL 证明：每步 512 条 = 64 组 × 8，逐条断言 prompt 无 tool schema
+  且 tool 计数恒 0，并逐 step 记录 `<tool_call>` 标签吐出率曲线（§4 门禁：step 50 之后 > 5% 暂停）。
+- **评测侧（2026-09-07 补记）**：协议 v5 与四个 notool 角色同样**没有**任何框架改动。
+  `eval/m9_notool_eval.py` 的 notool 生成不走 agent loop，直接用
+  `verl.utils.chat_template.apply_chat_template(tokenizer, [user], tools=None, enable_thinking=False)`
+  产出 prompt token（与训练时原生 `single_turn_agent` 逐 token 一致，见 `eval/test_m9_notool_eval.py`
+  的 `test_notool_prompt_reproduces_the_training_rollout_input`），再调 SGLang 原生 `/generate`；
+  采样参数、seed 派生、verifier、配对与 bootstrap 全部 import 冻结代码。

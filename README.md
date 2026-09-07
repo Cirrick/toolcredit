@@ -5,7 +5,8 @@
 
 完整实施文档见 [PLAN.md](PLAN.md)；项目约定见 [AGENTS.md](AGENTS.md)；环境记录见
 [environment.md](environment.md)；**逐 Milestone 的动机/方法/结果叙事见
-[reports/technical_report.md](reports/technical_report.md)**（living document，面试复盘入口）。
+[reports/technical_report.md](reports/technical_report.md)**（living document，面试复盘入口）；
+**数据来源/切分/去污染/各评测集职责的专题问答见 [reports/05_data_qa.md](reports/05_data_qa.md)**。
 
 ## 非目标（防 scope creep）
 
@@ -27,6 +28,7 @@
 | M6 E5 turn-level credit | ✅ 完成（2026-08-24） | E5 `β=0.5` 完成 200/200；fixed-100 **early AUC 0.70625 vs E3 0.67625（+3pt）**，但 final 同为 **0.76**，paired 为 5 fixed / 5 new（accuracy delta 95% CI `[-0.06,0.06]`）。机制按设计分开 useful/problem turn，但 mean calls `0.963→2.551`、4-call `2.71%→44.05%`、重复代码 `2.02%→39.71%`：结论为“早期更快、最终无增益、明显 over-calling”。30 条 mixed-quality audit、100题 paired taxonomy、10k bootstrap与完整 recovery proof均验收（详见 [reports/02_main_results.md](reports/02_main_results.md)、[reports/03_badcase_taxonomy.md](reports/03_badcase_taxonomy.md)、[plans/M6.md](plans/M6.md)） |
 | M8 E5-v2 守恒轮级信用 | ✅ 完成（2026-09-05） | 只把 E5 v1 修正项改为轨迹内 token 加权零和 + 零方差门控（`plans/M8.md`），200/200 step、守恒残差 ≤1e-13。over-calling 完全消失：greedy FULL760 4-call **92.9%→0.8%**、截断 **100%→8.7%**、mean calls 3.76→0.60（E3 0.89）。准确率 FULL760 greedy **.741** vs E3 .733，paired Δ +0.79pt，95% CI `[−1.84,+3.42]`；sampled pass@1 .755 vs .743。早期 AUC +1.87pt < 2pt → 预注册**情形 A**：v1 的行为漂移与早期增益源于非守恒隐式奖励，守恒再分配在 ≤4 轮 horizon、4–10% exposure 下未检出增益。协议 v4 仅新增一个 role，复用 M7 15,200 条（详见 [main results M8 节](reports/02_main_results.md)、[plans/M8.md](plans/M8.md)） |
 | M7 unified evaluation与项目综合 | ✅ 完成并验收（2026-08-25） | canonical raw/scored均 **15,200/15,200**，0 missing/duplicate/conflict/infra。FULL760 greedy raw→SFT→E3→E5为 **.561→.605→.733→.722**；E3→E5 paired Δ=−.0105，95% CI `[−.0368,.0158]`，sampled也无收益。E5却把4-call从E3的1.3%推到**92.9%**（sampled 1.2%→**97.2%**），且四source均出现：M6的over-calling/no-endpoint-gain泛化，M7不能验证early-speed。E3为最强endpoint；E5定性为credit-signal/proxy gaming，E4是更干净的reward-shaping exploitation。用户已批准最终文档与acceptance artifacts，并授权completion commit/tag `m7`（详见 [main results](reports/02_main_results.md)、[taxonomy](reports/03_badcase_taxonomy.md)、[reward exploitation](reports/04_reward_hacking.md)、[interview outline](reports/interview_outline.md)、[plans/M7.md](plans/M7.md)） |
+| M9 E3-NoTool 无工具对照 | ✅ 完成（2026-09-07） | 同起点/同数据/同配方/同 200 步，**只去掉工具**（零框架改动，config diff 恰好 5 条路径）。协议 v5 新增 `notool` 模式与四角色，15,200/15,200 条。greedy FULL760：E3 .733 vs **E3-NoTool .724**，Δ **−0.92pt** CI `[−3.55,+1.71]` → 预注册**情形 B（工具未提供额外准确率）**。关键分解：SFT→E3 的 +12.76pt = 6.05（不再被工具拖累）+ 4.74（推理提升，CI `[+2.11,+7.50]`）+ 1.97（工具边际价值，CI 跨 0）。工具增益随阶段单调收窄 −13.95pt（raw）→ −6.05pt（SFT）→ −1.97pt（E3）；优势只在 MATH L4/L5（+7.03/+2.99pt）。训练侧零方差组 44.6%→56.3%（E3 26.6%）→ M10 动机。tag `m9` |
 
 ## 复现
 

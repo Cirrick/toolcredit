@@ -402,3 +402,203 @@ step-200 角色、E3/E5 的 HF 物化 manifest、evaluator 代码与配置；M7 
 
 **证据**：`eval/build_diagnostic_freeze_v{2,3,4}.py`、`eval/verify_diagnostic_freeze_v{3,4}_semantics.py`、
 `eval/test_m8_e5v2_eval.py::test_v4_scoring_reproduces_canonical_m7_scored_row`、`plans/M8_DIAGNOSTIC_FREEZE_V4.md`。
+
+## Q14（2026-09-06，M8 后复盘）：M8 证明了什么？信用分配有没有带来提升？项目初衷"学会用工具就更准"完成了吗？下一步做什么？
+
+**答（M8 证明了什么）**：三件事，两件证明、一件没证明。(1) **v1 失效机制被反事实钉死**：同起点、同训练量、只把修正项
+改成轨迹内守恒，over-calling 完全消失（greedy FULL760 4-call 92.9%→0.8%、截断 100%→8.7%），终点不比 E3 差；所以 v1
+的行为漂移来自非守恒修正项等价的隐式稠密奖励，不是"轮级信用"本身。(2) **机制上实现了目标信用分配**：每条轨迹总信用
+与 E3 逐条相同，只在多次调用之间按 `s_t` 再分配，守恒残差 1e-13 级、零方差组恒等于 E3，可审计。(3) **效果没检出**：
+greedy Δ +0.79pt，CI `[−1.84,+3.42]`；早期 AUC +1.87pt 差 0.13pt 未过预注册 2pt 线，判情形 A，不事后改判。
+
+**为什么不显著**（前两条有数据，后两条是判断）：
+1. 作用面太小：守恒再分配只在"同轨迹 ≥2 次可区分调用"时非零；exposure 从前 25 步 10.4% 衰减到后 25 步 4.2%，
+   即 96% 轨迹的梯度与 E3 完全相同。
+2. **treatment 在缩小自己的作用面**（报告未明说，本次新观察）：E5-v2 评测零调用轨迹占 48.6%，E3 为 202/760 = 26.6%；
+   mean calls 0.60 < E3 0.89。守恒修正对重复/boxed 后的调用给负值，策略学到"少发第二次调用"，多调用轨迹随之减少。
+3. ≤4 轮 horizon 下轨迹几乎是 bandit，组内 outcome 方差已够用。
+4. `s_t` 是"执行成功且被引用"的启发式代理，不是真实步骤价值。
+
+**初衷完成了吗**：要分两个口径。PLAN §0.1 的研究问题是"轨迹级广播 vs 轮级信用"，工具增益只是前提检查（M1 已做：
+零样本全负、SFT 后收窄到 −3pt）。按 PLAN 口径交付物齐全，研究问题得到否定性、带机制的回答。但**"模型学会用工具后解题
+更准"没有被因果证明**：从未跑过 CoT-only 的 RL 对照臂，SFT→E3 的 +12.8pt 里多少来自学会用工具、多少来自 RL 本身提升
+数学推理分不开。现有只是相关性证据（greedy FULL760，`analysis/tool_use_conditional_accuracy.json`，有选择偏置）：
+
+| 阶段 | 零调用 (n, acc) | 有调用 (n, acc) | 有调用且全成功 | 有调用且有报错 |
+|---|---|---|---|---|
+| Raw | 299, .548 | 461, .568 | 365, .663 | 96, .208 |
+| SFT | 67, .179 | 693, .646 | 593, .698 | 100, .340 |
+| E3 | 202, .619 | 558, .774 | 509, .807 | 49, .429 |
+| E5-v2 | 369, .672 | 391, .806 | 361, .834 | 30, .467 |
+
+E3 分 level（MATH500 greedy）：L1–3 零调用与有调用准确率接近（.83/.90/.83 vs .97/.90/.85），L4–5 差距拉开
+（.64 vs .84、.36 vs .58）——与 M1"潜在增益在 L4–5"一致，但同样是相关性。
+
+**下一步排序**：(1) **E3-NoTool 对照臂**（`plans/M9.md`，"CoT"即无工具的纯文字推理，非 thinking 模式）：同起点、同数据、同 200 步，只去掉工具，另加 raw/SFT/E3 权重的无工具评测角色量化起点债务；补上因果空洞，面试必问，
+约 1 GPU 日。(2) **E7 零方差过滤**（`plans/M10.md`）：E3 零方差组均值 44%、后期 53%，DAPO 式过滤把已有诊断数字变成曲线；
+结果可预期（每步更快、终点持平或略高、rollout 成本约 1.8×），实现风险在 pin veRL `fit()` 耦合。(3) 不建议现在做：
+额外 seed（效应约 1pt，3 seed 也压不出显著）、§3.4 `|A_traj|` 变体（exposure 未解决）、更长 horizon（需换任务或改沙箱让
+多轮成为必要，E3 预算诊断显示单加预算只得到语言循环，属 scope 级决定）。
+
+**证据**：`reports/02_main_results.md` M8 节、`eval/runs/m8_e5v2_eval_20260905_134737/metrics/{m8_headline,tool_behavior}.json`、
+`analysis/tool_use_conditional_accuracy.py` 与其 JSON 输出（只读脚本，2026-09-06 新增）、
+`reports/docs/grpo_failure_diagnostic_session_summary.md` §8、`reports/01_tool_gain.md` 附录。
+
+
+## Q15（2026-09-06，秋招简历提炼）
+
+**场景与问题**：基于项目已完成工作，提炼用于大厂秋招的简历 bullets。
+
+**浓缩答案**：优先写训练管线与 MATH500 SFT→GRPO +17.2pt、6,056 条蒸馏轨迹及 token 对齐、轮级信用修正后四调用占比 92.9%→0.8%、19,000 条统一评测与配对 bootstrap。轮级方法准确率相对标准 GRPO 未检出显著增益；v2 同时改变守恒、门控与部分步骤信号，不能把行为改善宣称为单独守恒因素的因果证明。工具独立收益仍缺 NoTool RL 对照；E7 仍未实施。
+
+**证据**：`reports/resume_bullets_autumn.md`（四条正文及逐项源文件）；M7 `metrics/pass_at_k.json`、M8 `metrics/m8_headline.json`、`sft/data/gen/gen_stats.json`、`rl/custom/turn_advantage_v2.py`。
+
+## Q16（2026-09-06，HER 可行性讨论）
+
+**场景与问题**：hindsight experience replay 的思想能否与 ToolCredit 结合，做一个有解释力的小实验？本次只讨论方案，未授权新训练或实现。
+
+**浓缩答案**：可以，优先探索从 train split 的最终失败轨迹中提取可独立验证的成功子任务，重标注目标后用于辅助 SFT。HER 的核心是把目标改成轨迹实际达成的目标并重新计算奖励，不是反思文本，也不是把原题的错误答案改成 gold。原始 HER 面向 off-policy goal-conditioned RL；这里更准确称为 hindsight subgoal relabeling / supervised replay。
+
+- 与当前主线的关系：E5-v2 在同一原题轨迹内守恒再分配优势，且对 `std(score)=0` 的组严格退化为 E3；HER 式辅助监督可能回收这些组中局部正确的技能，但这是新增训练目标和数据，不能解释为纯信用再分配。全错不必然零方差，因为 reward 还含 format；零优势只表示该项 policy gradient 为零，KL 等仍可能有梯度。
+- 示例（示意，非实测轨迹）：原题求 `x²−5x+6=0` 两根平方和，工具正确求得 2、3，最终却答 12。可将子任务标注为“求该方程实根”，只保留与新目标一致的正确片段；若补写 `boxed{2,3}` 收尾，须记录为合成监督而非原始 replay。不能把原题答案从 13 改成 12。
+- 数据门槛：子任务须独立、与原题相关且保留所有必要条件；用独立数学规格/参考解验证，沙箱重跑只能证明可执行性，不能证明代码解决了正确问题。排除常量打印、无关计算、重复和重标注后语义冲突；保留 parent sample ID、step、原始片段、目标、验证依据、拒绝原因及合成编辑记录。只用 train，衍生题重新污染检查；M7/M8 eval 和 70 条预算诊断题不得回灌。
+- 最小先导建议：预先固定抽样规则，审计约 100–200 条 E3 train 失败轨迹（按 step/原题去重，并记录 score 零方差组身份），报告可恢复率、独立验证通过率、非平凡子任务比例和成本。当前仅检查了 E3 `predictions/train/1.jsonl` 首行 schema：有 input/output/gts/score/sample_id 和汇总工具指标，没有结构化 messages/逐轮 ledger；需先核实拼接文本能否无歧义恢复，不能假设已有 replay buffer。本次未执行该审计。
+- 后续实验建议：各臂从同一 SFT checkpoint 出发，比较等 token 预算的原 SFT 数据续训、成功轨迹片段续训、失败轨迹的已验证子任务续训；再采用同一 E3 GRPO 配方和预算。保持原题评测、记录新增训练/验证成本、工具滥用与截断，不能只与没有额外 SFT 的旧 E3 比。先只组合标准 E3，避免同时改变 turn-credit。
+- 暂不建议直接向 GRPO 注入历史重标注轨迹：旧策略采样和改写 prompt 同时改变概率条件，原 old log-prob、group UID、reward/advantage 不能直接复用；重新算新 prompt 下 log-prob 本身也不能消除采样偏差。可选替代是仅用重标注题目重新 on-policy 采样，但这是课程数据扩充，有额外 rollout 成本，仍须独立计划。
+
+**证据**：`PLAN.md` §0.1/§9–10；`plans/M8.md` §3 与 §13；`rl/custom/turn_advantage_v2.py:conserved_turn_corrections`；`rewards/composite_reward.py`；`sft/trace_tokenizer.py`；M8 `metrics/m8_headline.json` 中实际 treatment exposure 首/末 25 步为 10.42%/4.20%；`plans/M9.md` 已完成 smoke、formal 待授权，`plans/M10.md` 仍草案。外部方法依据：[HER 原论文](https://arxiv.org/abs/1707.01495)、[HIR，ICML 2023](https://proceedings.mlr.press/v202/zhang23ab.html)。以上迁移方案是本项目设计建议，没有效果证据。
+
+## Q17（2026-09-07，M9 formal 中断）：为什么每条 200-step formal run 都会在 5–9 小时后"pod 中断"？
+
+**场景与问题**：E3-NoTool formal 在 step-150 checkpoint 写入时整个 pod 消失（进程树、tmux、/tmp 全没，无 Traceback），与 E3/E4-A/E4-B/E5/E5-v2 五次"JupyterHub 中断"表现相同。用户批准从 step 125 恢复后要求查明原因。
+
+**浓缩答案**：不是 JupyterHub 空闲回收，而是**容器内存上限 128 GiB 被打满后的 cgroup 组级 OOM**。pod 的 `MEM_LIMIT=137438953472`（128 GiB），容器 cgroup `memory.max` 同值且 `memory.oom.group=1`——cgroup v2 下超限时内核一次杀死容器内全部进程，所以 tmux、watcher、Ray、sglang 同时消失、状态文件停在 running、日志没有任何 Python 异常；pod 直到用户下次登录才重建。六条 formal run 的日志给出一致的指纹：veRL 记录的 `perf/cpu_memory_used_gb`（`psutil.virtual_memory().used`，主机口径、不含 page cache）从起点 161–171 GB 单调涨 +51～+63 GB，**被杀前全部落在 220–225 GB**；恢复后新进程立刻回落约 45 GB（说明增长属于本容器）；恢复段最多 75 步，终点 206–219 GB，刚好没碰到死亡线，所以"恢复一次必定跑完"。E4-A 与本次都恰在 step-150 checkpoint 的 FSDP state-dict 聚合时刻被杀，对应额外约 20 GB 的瞬时峰值。时间假设（culler）无法解释"死亡时内存恒定而时长 5.5–8.7 h 不恒定"。
+
+- 增长源尚未定位：恢复段起点容器 `memory.current` 117 GB，其中 anon 38.7 GB + shmem 29.3 GB 不可回收，page cache 可回收；单进程 RSS 最大的是 `ray::WorkerDict`（actor+ref，param/optimizer offload）49 GB。新增 `scripts/m9/memwatch.sh` 每 5 min 采样 cgroup current/anon/file/peak/oom_kill 与 top-RSS 进程到 run 的 `analysis/container_memory.jsonl`，跑完后可直接看哪个进程线性增长。
+- 面试口径：分布式 RL 训练的"莫名其妙的 pod 重启"要先看 cgroup（`memory.max`/`memory.oom.group`/`memory.events`）而不是框架日志；oom.group=1 的特征就是"全体消失、无异常栈"。
+- 可选对策（待用户决定）：① 200-step run 预设在 step 100 处计划性重启（现有 resume 机制已能精确从 checkpoint 续跑，成本约 5 min，只需把中断从"意外"改成"预期"）；② 定位泄漏后修（glibc arena 碎片可试 `MALLOC_ARENA_MAX=2`；若是 rollout dump/metrics 累积则改 veRL 配置）；③ 向平台申请更大内存 profile。
+
+**证据**：`/proc/1/cgroup` 对应的 `memory.max`/`memory.oom.group`；六条 run 的 `rl/runs/<run>.log` 中 `perf/cpu_memory_used_gb` 序列；`rl/runs/*/recovery/resume_from_*/recovery.json`；`plans/M9.md` §11（2026-09-07 行）；`rl/runs/e3notool_grpo_20260906_220907/analysis/container_memory.jsonl`。
+
+## Q18（2026-09-07，复核 M3 结论）：当初"SFT 有用"的依据是工具失败率下降 + L4/L5 用工具更准，这个观察对吗？E3 / E5-v2 用工具的准确率和分难度准确率有提升吗？
+
+**答（SFT 那条观察：对了一半）**。同一 M1 probe（净训练池分层 100 题/level、temp 0.6、n=4、bare TIR），零样本 → SFT-6k：
+
+| Level | 工具报错率 | 未用工具率 | TIR pass@1 | CoT pass@1 | 工具增益 |
+|---|---|---|---|---|---|
+| 3 | .317 → .155 | .228 → .070 | .745 → .775 | .845 → .838 | −.100 → −.062 |
+| 4 | .392 → .232 | .268 → .065 | .588 → .642 | .750 → .693 | −.163 → −.050 |
+| 5 | .456 → .272 | .270 → .150 | .333 → .367 | .425 → .338 | −.092 → **+.030** |
+
+- **"工具失败率下降"成立且稳健**：probe 全 level 下降；M7 统一评测口径 per-call 执行成功率 Raw .626 → SFT .768，未用工具率 .393 → .088。
+- **"L4/L5 用工具更准"成立但小且 protocol 依赖**：同 probe 上 L4 +5.4pt、L5 +3.4pt；但换到 M7 held-out MATH500 greedy，SFT 相对 raw 在 L4 是 −2.4pt（.586→.562）、L5 +0.8pt（.313→.321），基本没动。且 CoT 臂同时回落，**工具增益只有 L5 转正**，全局仍 −.032。
+- 正确表述：**SFT 买到的是可靠性（会发调用、代码能跑、不循环重试），不是准确率；准确率的大跳在 RL 阶段。**
+
+**答（E3 / E5-v2 用工具的准确率：明确提高）**。greedy、FULL760：
+
+| 阶段 | per-call 执行成功 | 报错轨迹率 | 4 调用率 | 截断率 | P(对\|有调用) | P(对\|调用全成功) |
+|---|---|---|---|---|---|---|
+| Raw | .626 | .146 | .100 | .179 | .568 | .663 |
+| SFT | .768 | .134 | .078 | .151 | .646 | .698 |
+| E3 | .881 | .067 | .013 | .096 | .774 | .807 |
+| E5-v2 | .906 | .042 | .008 | .087 | .806 | .834 |
+
+（E5-v1 不参与比较：截断率 100%、4-call 92.9%，已确诊的 over-calling 失效臂，其 per-call .986 是"重复跑同一段能跑的代码"的产物。）
+
+**答（分难度，greedy MATH500 整体准确率）**：
+
+| Level | Raw | SFT | E3 | E5-v2 | E3−SFT | E5v2−E3 |
+|---|---|---|---|---|---|---|
+| 1 | .837 | .930 | .953 | 1.000 | +2.3 | +4.7 |
+| 2 | .733 | .767 | .900 | .878 | +13.3 | −2.2 |
+| 3 | .657 | .695 | .848 | .838 | +15.3 | −1.0 |
+| 4 | .586 | .562 | .797 | .812 | **+23.5** | +1.5 |
+| 5 | .313 | .321 | .522 | .537 | **+20.1** | +1.5 |
+
+- **RL 的提升集中在 L4/L5**，正是 M1 预言的潜在工具增益区、也是 RL 训练池（L3–5）所在——这条对上了。
+- **E5-v2 相对 E3 分 level 是 ±2pt 噪声**，与 FULL760 +0.79pt、CI `[−1.84,+3.42]`、情形 A 一致；分难度切开也没有藏着的效应。
+- 分难度的条件准确率差距同样集中在 L4/L5：E3 有调用 vs 零调用 = .840/.643（L4）、.582/.361（L5）；E5-v2 = .861/.750、.644/.453；L1–3 两者持平。
+
+**两条必挂的限定**：(1) 选择偏置——E5-v2 零调用率 48.6%（E3 26.6%），是策略自己挑题发调用，条件准确率不可作因果读；(2) 仍无 CoT-only RL 对照臂，SFT→E3 的 +12.8pt 分不出"学会用工具"与"RL 提升推理"，即 M9 要补的洞。
+
+**证据**：`analysis/tool_use_conditional_accuracy.json`（分 level 分层已含 `MATH500_level_1..5`）、`data/probe/metrics.json`、`data/probe_sft/metrics.json`、两份 `metrics/tool_behavior.json`、`eval/runs/m8_e5v2_eval_20260905_134737/metrics/m8_headline.json`、`reports/01_tool_gain.md` 正文与 M3 附录。
+
+## Q19（2026-09-07）：各阶段用的训练/评测数据集分别是什么？既然 AIME 结果"不要读"，为什么还测它？
+
+**答（数据链条）**。全部源自一个池子 MATH train（lighteval 预处理），一次性切分后各阶段严格不交叉：
+
+| 阶段 | 数据 | 条数 | 出处 |
+|---|---|---|---|
+| 原始训练池 | `data/processed/math_train.jsonl` | 7496 | MATH-lighteval train |
+| 去污染后 | `math_train_clean.jsonl` | 7280 | `dedup_check.py` 剔 216 |
+| M1 选集（L3–5） | `train_subset.jsonl` | 5403 | L3 1558 / L4 1654 / L5 2191 |
+| M3 held-out | `sft/data/heldout_200.jsonl` | 200 | 从 5403 分层留出，不参与 SFT 与 RL |
+| SFT prompt 池 | `sft/data/sft_pool.jsonl` | 5203 | 5403 − 200 |
+| SFT 训练轨迹 | `sft/data/sft_traces.jsonl` | 6056 | Qwen3-8B 教师、temp 0.7、n=2，拒绝采样 yield 58.2%，覆盖 3716 题 |
+| RL prompt 池 | `rl/data/e3_train.parquet` | 5203（verl 长度过滤后 5195） | 与 SFT 同池、同题 |
+| RL 训练内 val | `e3_val_math500_100.parquet` | 100 | MATH500 分层 20/level，仅看曲线 |
+| 最终统一评测 | MATH500 500 + GSM8K test 200 + AIME24 30 + AIME25 30 | **760** | greedy n=1 与 temp 0.6 n=4 两套 |
+
+注意两点：**(a)** RL 与 SFT 用同一批题（5203），这是刻意的——RL 在 SFT 已见过的题上做 on-policy 改进，不是新数据带来的提升；**(b)** MATH500 是评测集，但 RL 训练内 val 用了它的 100 题子集，所以最终报告以 760 题全量为准，MATH500 那 100 题严格说是"调过曲线的"（无早停、无选 checkpoint，固定 step 200，风险有限但要如实说）。污染检查：5403 训练题 vs 四个评测集精确 + 13-gram 命中 **0**（`data/contamination_report_subset.md`）。
+
+**答（为什么测 AIME 却不读单点差异）**。两件事不矛盾，因为 AIME 承担的是**污染兜底**职责，不是**效应量测量**职责：
+
+1. **测它的理由**：AIME 2024/2025 时间上晚于基座知识截止，是全 panel 里污染风险最低的一档。它回答的是"MATH500 上的 +17pt 是不是背题背出来的"——如果模型在 MATH500 大涨而在 AIME 上塌成随机，就说明提升不可信。实际 Raw .100 → E3 .133 → E5-v2 .200（AIME24），方向一致、没塌，兜底通过。这是**定性的健全性检查**。
+2. **不读单点差异的理由**：n=30。1 题 = 3.3pt。E3 4/30 vs E5-v2 6/30 只差 **2 题**，Wilson 95% CI 分别是 `[.053,.297]` 与 `[.095,.373]`，宽度约 25pt，完全重叠；而要检测的效应量本身只有约 1pt。用它做主结论等于用尺子量原子。所以 AIME 进 760 题的合并 bootstrap（按 question_id 重采样），单独一列只作展示，不单独下结论。
+3. 同理 GSM8K 200 题是 sanity check（心算即可解，工具增益趋近零，PLAN §5.2 已据此否决用 GSM8K 训练），看的是"有没有退化"，不是"有没有提升"。
+4. 面试口径：**评测 panel 的每个数据集要说清承担哪个职责**——MATH500 是效应量主战场（同分布、n 够、有 level 分层），AIME 是污染与泛化兜底（低污染、n 小），GSM8K 是退化 sanity。把兜底集的小样本差异当结论汇报，是评测设计里的典型错误。
+
+**证据**：`data/README.md`、`rl/data/manifest.json`、`sft/data/gen/gen_stats.json`、`eval/m7_eval_config.json`、`data/contamination_report_subset.md`、PLAN §5.1/§5.2/§11。
+
+## Q20（2026-09-07，数据谱系细节）：原始训练集是什么、怎么去污染、held-out 200 怎么来、RL prompt 池怎么来、MATH500 与训练集什么关系？
+
+**原始训练集**：MATH（Hendrycks）**train split**，取自 M0 已下载的本地 `~/verl-team/lighteval-MATH-preprocessed/train.parquet`（源 `DigitalLearningGmbH/MATH-lighteval`），7500 条。`data/download_convert.py` 转统一 schema `{id,question,answer,level,subject,source,split}`，剔 4 条（2 条 `Level ?`、2 条空 ground_truth）→ **7496**。question 统一剥掉 verl-team 预处理追加的固定后缀 `" Let's think step by step and output the final answer within \boxed{}."`（断言全表匹配），训练/评测时再按需拼回——保证 SFT、RL、评测三处 prompt 完全一致。
+
+**去污染**（`data/dedup_check.py`，PLAN §5.1）：训练池对四个评测集（MATH500 / AIME24 / AIME25 / GSM8K200）逐条比，两个判据——(1) 归一化（转小写、非字母数字→空格、压空白）后**精确匹配**；(2) 词级 **13-gram 重叠**（GPT-3 式）。命中即剔除，不做人工豁免。结果：MATH500 命中 172、AIME24 66、AIME25 69、GSM8K 0，去重后共剔 **216** 条 → `math_train_clean.jsonl` **7280**。绝大多数是答案格式模板句（如 "where m and n are relatively prime positive integers find m n"）而非真题目重复——AIME 只有 30 题却命中 66/69 条正是这个原因。选集后复跑（`contamination_report_subset.md`）：5403 条 vs 四个评测集命中 **0**。脚本带 `--self-test`（构造精确/n-gram/干净三种行验证检出）。
+
+**一个已核实的假阳性（本次新发现，2026-09-07）**：报告里唯一那条 "exact" 命中 `math_train_007163 ↔ math500_000046` **不是真重复**——训练题是 `z^4 - z^2 + 1 = 0`（答案 12），评测题是 `z^4 + z^2 + 1 = 0`（答案 6）。归一化把 `+`/`-` 一并去掉才撞在一起。方向是保守的（过度剔除，不是漏检），不影响任何已发布结论；**MATH train 与 MATH500 之间真实的精确重复数为 0**。
+
+**held-out 200**（`sft/make_splits.py`，seed 42）：从 **5403 条 L3–5 选集**里按 level 比例分层随机抽 200（实得 L3 58 / L4 61 / L5 81），剩余 **5203** 作 `sft_pool.jsonl`。它的作用是 M3 的**验收集**：SFT 后测工具格式成功率与 pass@1 vs 零样本（结果 89.5% / +1.9pt，均为边缘，见 plans/M3.md）。它既不参与蒸馏轨迹生成，也不进 RL——`rl/prepare_data.py::validate_split` 硬断言 `heldout_ids & train_ids == ∅` 且 train 必须恰好 5203 行，不满足直接抛错。注意它**不在最终 760 题 panel 里**，只服务 M3 验收。
+
+**RL prompt 池**：就是 `sft_pool.jsonl` 那 5203 题，一题不多一题不少，`rl/prepare_data.py` 转成 veRL parquet（`prompt` 拼回后缀、`reward_model.ground_truth` 放答案、`extra_info` 保留 id/level/subject）。verl 按 `max_prompt_tokens=1024` 过滤掉 8 条超长题，**实际训练 5195**。这意味着 **RL 与 SFT 用同一批题**——RL 是在 SFT 已见过的题上做 on-policy 改进，+17.2pt 不来自新数据。训练内 val 是 MATH500 的 100 题分层子集（20/level，seed 42），只用于画曲线。
+
+**MATH500 与训练集的关系**：三层。
+1. **split 级天然隔离**：MATH500 = `HuggingFaceH4/MATH-500`，是 MATH **test** split 的 500 题子集（Lightman et al. PRM800K 选取），训练池是 **train** split，构造上不相交；实测归一化精确重叠 0（上面那条是假阳性），13-gram 保守剔除后训练子集命中 0。
+2. **分布上是同源 in-distribution 评测**：同为 MATH、subject 分布接近，所以它是效应量主战场；但 **level 上不对齐**——训练只有 L3–5，MATH500 含 L1 43 / L2 90 共 133 题属训练分布外的"更简单"档。这正好解释了工具增益在 L1–3 为负而 RL 提升集中在 L4/L5（见 Q18）。
+3. **有 100 题被"看过曲线"**：RL 训练内 val 取自 MATH500。缓解是全程无早停、不按 val 选 checkpoint、一律固定 step 200；但汇报时必须说明，760 题合并结果才是主口径。
+
+**证据**：`data/download_convert.py`、`data/dedup_check.py`、`data/contamination_report{,_subset}.md`、`data/select_train_subset.py`、`sft/make_splits.py`、`rl/prepare_data.py`（`validate_split`）、`rl/data/manifest.json`、`data/README.md`。
+
+## Q21（2026-09-07，M9 判读）：工具到底有没有用？SFT→E3 的 +12.76pt 该怎么讲？
+
+**场景与问题**：M9 的 E3-NoTool 对照臂跑完并完成协议 v5 评测，落入预注册情形 B（无差异）。
+需要给出可对外陈述的判读，以及"那 12.76pt 到底是什么"的解释。
+
+**浓缩答案**：在 1.7B、≤4 轮、MATH 训练池、200 步这一配置下，**工具没有提供额外准确率**
+（Δ = E3-NoTool − E3 = −0.92pt，95% CI [−3.55, +1.71]，跨 0）。但"工具学习"本身确实发生了，
+只是它买到的是**回到无工具基线**而不是超过它。四个 pass@1 构成一条在同 760 题上精确闭合的路径：
+
+- SFT-TIR .605 → SFT-NoTool .666：起点被工具**拖累** +6.05pt（47%）
+- SFT-NoTool .666 → E3-NoTool-eval .713：RL 真正提升的**自身推理** +4.74pt（37%，CI [+2.11, +7.50]）
+- E3-NoTool-eval .713 → E3-TIR .733：工具的**推理时边际价值** +1.97pt（15%，CI [−4.74, +0.79] 跨 0）
+- 合计 = +12.76pt = SFT→E3
+
+工具的代价随阶段单调收窄：raw −13.95pt → SFT −6.05pt → E3 −1.97pt。也就是说 RL 把工具从"净负担"训成了
+"净中性"，这就是那 6.05pt 的来源；而模型自身推理提升了 4.74pt，且这部分**留在权重里**
+（E3 权重拿掉工具仍比 SFT-NoTool 高 4.74pt），不依赖解释器。
+
+- **null 不是"到处没差别"**：level 分解显示 E3 相对 E3-NoTool 的优势只在 MATH L4（+7.03pt）与 L5（+2.99pt），
+  L1–2 完全打平、GSM8K −1.50pt、AIME 反向。少数难题上的正贡献被简单题上的负担抵消回 −0.92pt。
+  与 M1"潜在增益在 L4–5"的先验一致。
+- **预注册纪律的两处自我约束**：(i) §8 附加条款要求"SFT-NoTool→E3-NoTool 的增益与 +12.76pt 差 < 3pt 才支持 B"，
+  实测 +5.79pt、差 6.97pt，**该条不成立**，必须写明不能据此加强 B——原因正是上面的分解（无工具臂的起点
+  已免除那 6.05pt 负担）；(ii) §11 在看到终点**之前**记录了 smoke 显示起点其实偏向 NoTool，
+  因此判读中不得引用"保守方向、结论只会被低估"。
+- **要让工具净赚该怎么做**：换训练池（长程符号推导、多步数值、需要状态的任务）或换规模，
+  而不是调 RL 超参。M9 的证据不支持"再训久一点工具就有用了"。
+- **反直觉的副产品**：无工具臂的组内零方差比例 44.6%→56.3%（E3 step 1 为 26.6%），
+  即约一半 batch 没有梯度信号却仍打平——这是 M10 零方差过滤的直接动机。
+
+**证据**：`eval/runs/m9_notool_eval_20260907_175726/metrics/m9_headline.json`；
+`reports/02_main_results.md` M9 节；`reports/01_tool_gain.md` M9 附录；
+`rl/runs/e3notool_grpo_20260906_220907/analysis/formal_completion_gate.json`；`plans/M9.md` §8/§11/§12。

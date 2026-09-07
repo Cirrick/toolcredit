@@ -1,0 +1,57 @@
+{
+  "schema_version": "toolcredit_m9_preflight_v1",
+  "plan_step": "plans/M9.md §7 step 1 — disk/GPU preflight before any E3-NoTool run",
+  "computed_at": "2026-09-06T21:32:36.381149+00:00",
+  "gpu": {
+    "name": "NVIDIA GH200 144G HBM3e MIG 7g.144gb",
+    "visible_device_count": 1,
+    "free_gib": 142.2,
+    "total_gib": 142.78
+  },
+  "filesystem": {
+    "mount": "/home/jovyan",
+    "total_gib": 3891.2,
+    "used_gib": 3663.29,
+    "free_gib": 227.91,
+    "handoff_stale_value_gib": 66,
+    "note": "HANDOFF 的 66 GiB 是 M8 完成时快照；plan §7 step 1 要求现场重算，本次实测 227.91 GiB"
+  },
+  "smoke_disk_gate": {
+    "remaining_peak_write_gib": 25.0,
+    "disk_safety_margin_gib": 30,
+    "disk_minimum_gib": 55.0,
+    "disk_free_gib": 227.91,
+    "basis": "smoke keeps E3 batch/n but saves no checkpoint (save_freq=-1)"
+  },
+  "formal_disk_gate": {
+    "remaining_peak_write_gib": 61.63,
+    "disk_safety_margin_gib": 30,
+    "disk_minimum_gib": 91.63,
+    "disk_free_gib": 227.91,
+    "basis": "3 x E3 checkpoint 20.40 GiB + predictions 0.42 + tensorboard 0.002; no tool turns makes E3-NoTool predictions no larger than E3's"
+  },
+  "verl_source_hashes": {
+    "verl/trainer/ppo/ray_trainer.py": "de58d295cf86656a28196b0718168d4a11666f3e30957b7e166914496c2a6d66",
+    "verl/trainer/main_ppo.py": "e3fe6e73b18d63367402a2570c5ba054a2b05443ac40a168524dbf545b1da392",
+    "verl/experimental/agent_loop/agent_loop.py": "9bcbc04a190ac809baf5225aaf2c98107cc91b6e3996cf46d99387d7050dd195",
+    "verl/experimental/agent_loop/tool_agent_loop.py": "0cc1ccb7327ecb1f71a85739f1fea71953a0ce414bbc6bfa1830f1ad5a6bbd33",
+    "verl/experimental/agent_loop/single_turn_agent_loop.py": "066fade7d9c73076937af7d263fb9a1cefb38903c667ced79238ce567323758c"
+  },
+  "config_diff_gate": {
+    "e3_to_notool": [
+      "actor_rollout_ref.rollout.agent.agent_loop_config_path",
+      "actor_rollout_ref.rollout.agent.default_agent_loop",
+      "actor_rollout_ref.rollout.multi_turn.enable",
+      "actor_rollout_ref.rollout.trace.project_name",
+      "trainer.project_name"
+    ]
+  },
+  "regression": {
+    "command": "pytest -q --ignore=third_party",
+    "result": "237 passed",
+    "at": "2026-09-06"
+  },
+  "historical_artifacts_deleted": [],
+  "gate_passed": true,
+  "git_head": "a4bd7b359b933be4ca486b877d844f581dd31458"
+}
