@@ -602,3 +602,37 @@ E3 分 level（MATH500 greedy）：L1–3 零调用与有调用准确率接近�
 **证据**：`eval/runs/m9_notool_eval_20260907_175726/metrics/m9_headline.json`；
 `reports/02_main_results.md` M9 节；`reports/01_tool_gain.md` M9 附录；
 `rl/runs/e3notool_grpo_20260906_220907/analysis/formal_completion_gate.json`；`plans/M9.md` §8/§11/§12。
+
+## Q22（2026-09-09，M10 批准前讨论）：M10 是 DAPO 还是 Dr. GRPO？下一步做哪个？为什么 M10 不上 DAPO 四件套？
+
+**场景与问题**：用户阅读 `plans/M10.md` 草案后连问三题：(1) E7 属于 DAPO 还是 "Dr. DAPO"，算法为何提出、解决什么、为何有效；
+(2) 下一步做 DAPO（M10）还是 Dr. GRPO；(3) M10 为什么只做动态采样而不上 DAPO 四件套。
+
+**浓缩答案**：
+
+1. **M10 = DAPO 的 Dynamic Sampling 单一组件，不是 Dr. GRPO**（学界无 "Dr. DAPO"，指的应是 Dr. GRPO）。
+   GRPO 优势 `A_i=(r_i−mean)/std`，组内 8 条得分相同则分子恒 0，整组梯度贡献严格为零；被学会的题从 mixed 变全对，
+   零方差比例随训练单调上升（E3 均值 44%、末 25 步 53%）。危害三层：rollout 算力白耗（占 step 时间 70%+）；
+   有效 batch 随训练漂移，梯度方差后期变大；**token-mean 聚合下零优势序列不贡献分子却贡献分母，等价于一个悄悄衰减的学习率**。
+   DAPO 做法：actor update 前按 UID 丢零方差组，用**同一冻结 snapshot** 补采样到满 batch。有效原因：被丢的组本来贡献为零，
+   不改梯度方向，只保证有效样本数恒定并去掉稀释；副产品是自动课程（informative 集合向能力边界集中）。代价是补采样不免费，
+   故 M10 §2 强制双 x 轴（有效 step / 累计 rollout）。本项目比原文更严格：按真正进入优势的标量 `score` 判零方差而非 accuracy，
+   因约 7.4% 的组 accuracy 一致但 format 分有方差、仍有梯度。
+   **Dr. GRPO** 攻击的是估计量偏置：除 std 的难度偏置（极易/极难组 std 小、优势被放大）与按长度归一化的长度偏置
+   （错答越长每 token 罚越轻）。E3 已用 `token-mean`，长度偏置修正已生效；`norm_adv_by_std_in_grpo: true` 保留，
+   故 M10 是纯 DAPO 动态采样消融，与 Dr. GRPO 正交。
+2. **助手建议先做 Dr. GRPO**：在本项目它收缩成一个 YAML 开关（veRL `core_algos.py` 原生支持），约 1.5 天、不碰框架内部，
+   结果不可预测（去 std 后 7:1 / 1:7 组权重压低 2–3×，而 E3 后期 informative 集合正向这类边缘组集中，效应可能随训练**变大**），
+   且直接对应 `PLAN.md` 面试表第 312 行的 ⚠️；M10 约 4.5 天、复制 409 行 `fit()`、预期落情形 A。
+   需先定口径：去 std 后优势量级缩小 2–3× 等价于学习率下降，"论文原样不补偿"与"补偿后只看难度偏置"要二选一并预注册。
+   **用户决定：仍先做 M10**（2026-09-09）。
+3. **为什么不上四件套**：Clip-Higher（0.2/0.28）与 token-level loss（veRL 默认 `token-mean`）**已在 E3 基线里**，是所有臂共享配置而非处理变量；
+   单因子纪律——全部结论建立在 E3→Ex 配对分析与 resolved-config diff gate 上，M10 §3.2 只允许 `filter_groups` 三键不同，
+   四件一起开则 Δ 无法归因；Overlong reward shaping 治截断奖励噪声，而 E3 后期截断率约 1%、E5-v2 把 4 轮截断压到 8.7%，
+   病灶基本不存在，且它改 reward、属 E4 领地并被 M10 §1 划为范围外；去 KL 信息量太低（系数 0.001、low_var_kl，
+   `PLAN.md` 313 行定位为"低系数折中并监控"）。动态采样是四件中唯一需改 trainer、也唯一对应本项目已量化病灶（44%→53%）的组件。
+   DAPO 是系统论文，四件套是为 32B、2 万 token 长 CoT 配的药；本设置熵/长度在 M4 已验证健康，硬上四件回答的是"能否复现 DAPO"而非研究问题。
+
+**证据**：`plans/M10.md` §1–§3；`rl/configs/e3_grpo_baseline.yaml` 第 6/37–41 行；veRL pin
+`trainer/ppo/core_algos.py:296`（Dr. GRPO 开关注释）与 `trainer/config/_generated_ppo_trainer.yaml:82`（`loss_agg_mode: token-mean`）；
+`PLAN.md` 312–316、479 行；`reports/technical_report.md` M8 行（截断 100%→8.7%）。

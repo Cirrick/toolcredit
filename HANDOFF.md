@@ -2,6 +2,27 @@
 
 ## 当前状态
 
+- **2026-09-09：M10 草案 v2 已批准；步骤 0 完成并批准（`plans/M10_STEP0_BOUNDARY.md` §8，用户授权助手决定：8 处白名单、驱动边界方案 (b)、resume 显式拒绝启发式）。下一会话按 `plans/M10_KICKOFF_PROMPT.md` 执行步骤 1–6；M10 相关文件尚未 commit。** 21.9 GB offload-check checkpoint 已按用户指令删除（`checkpoint_cleanup.json`）。
+
+- **2026-09-09：offload 关闭验证（下方"下一步"第 5 条）完成，结论为"部分通过"。** run `rl/runs/e3_offload_check_20260909_150849`（formal 形状 5 步 + step-5 checkpoint，resolved config 相对 E3 只差 6 路径：`actor.fsdp_config.{param,optimizer}_offload`、`ref.fsdp_config.param_offload` 置 false 与 `trainer.{total_training_steps,save_freq,test_freq}=5`）。对照表见 `analysis/offload_check_compare.md`（同目录 `.json` 与 `container_memory.jsonl`）。四项验证：(a) 数值：5 步 prompt 与 E3 完全相同，score .508/.588/.533/.591/.556 vs E3 .531/.570/.522/.610/.552，pg_loss/entropy/KL/grad_norm 同量级，**非逐位一致**（sglang 采样非确定，E3 自身重跑也不会逐位一致）；(b) GPU：max_allocated 43.5 GB 与 E3 相同，reserved 63.1 vs 50.2 GB，无 OOM，142 GB 卡上余量充足；(c) CPU：WorkerDict RSS 25 GB（E3/M9 49–50 GB），psutil used 159–163 vs E3 167–188 GB，pinned 池消失、基线降约 25 GB；**但 cgroup anon 在训练段仍以约 0.5 GB/step 线性增长**（39.0→41.7 GB / 5 步，WorkerDict 22.4→24.9 GB），与 E3 每 150 步 +51–63 GB 的斜率同量级，即泄漏源不是 offload 池本身；线性外推 200 步 anon 约 140 GB，**仍可能撞 128 GiB**。checkpoint 写入时 page cache 冲到 107 GB（可回收，anon 不变）；(d) 速度：单步 165–189 s vs E3 151–167 s，差异全在 gen（54–77 vs 48–57 s），old_log_prob/ref/update_actor 相同；5 步样本太少，不定论。**建议**：M10+ 关闭 offload（三条 diff 进允许集合，标为纯基础设施差异）**并且保留 step-100 计划性分段恢复**；如需根治，下一步应在更长 run 上按 `smaps_rollup` 定位 anon 增长进程（候选：AgentLoop/sglang HTTP 侧的轨迹缓存、reward 沙箱残留），不是再调 FSDP。memwatch 的 `step` 字段在本 run 恒为 0（读 log 的 grep 未命中，时间戳可用），待修。21 GB smoke checkpoint 未删。新增文件：`rl/launch/e3_offload_check.py`、`scripts/infra/run_offload_check.sh`、`analysis/offload_check_compare.py`；qa_log 新增 Q22（DAPO vs Dr.GRPO，用户决定先做 M10）。
+
+- **2026-09-09：repo 状态与 M10 适用性审查完成，未授权或启动 M10。** HEAD `8e69542` / tag `m9`；
+  M9 step-200 checkpoint 文件大小与 completion gate 相符，v5 的 5 个 metrics 文件 hash 重验通过，
+  `conda run --no-capture-output -n toolcredit pytest -q -p no:cacheprovider eval/test_m9_notool_eval.py`
+  **14 passed**（CUDA/NVML 初始化警告）。本会话 `nvidia-smi` 无法连接驱动，不能确认 GPU 可用；
+  `df -h .` 显示挂载可用约 4.0 TiB，不代替训练 pod/quota preflight。veRL trainer/main 源码 SHA
+  与 E7 旧审查完全相同；没有 E7 trainer/config/launcher/run。`AGENTS.md` 的 M4/M5 状态摘要已过期。
+  **建议继续 M10 方向，但先修订草案再进入 exact-boundary 专项审批**：
+  (1) 保持 E3 TIR 对照，M9 的 NoTool 零方差统计只能作旁证；协议确定为 v6。
+  (2) 整批 64 题补采样且 surplus 丢弃使 1.8× rollout 预算偏低：以 E3 informative 比例
+  .5593/.4725 作独立同分布二项近似，最多 4 批的期望分别约 2.08/2.70 批，仅为预算推算，非 E7 实测。
+  (3) 冻结 rollout-AUC 的共同预算区间、插值及归一化规则，同时报告 token/wall-clock；200-step 终点
+  不是等算力比较。CI 跨 0 只表示未检出，需补齐 §9 判读空档，不强制把提升归因于 L5/mixed 漂移。
+  (4) 零优势仅使 GRPO policy-gradient 项为零，E3 仍有 KL loss；过滤还改变训练分布和 PG/KL 权重关系。
+  (5) 将下方 offload 验证/分段恢复待办纳入 M10：5-step smoke 不能证明 200-step 无内存增长，
+  也未覆盖 checkpoint 峰值；若关闭 offload，要更新三项 config diff 并记录数值与速度可比性限制。
+  原有未提交改动保留，未改 `PLAN.md`、M10 草案或冻结产物；本次仅新增交接/日志记录。
+
 - **2026-09-07：M9 / E3-NoTool 完成（步骤 0–5），预注册判读情形 B。**
   训练 `rl/runs/e3notool_grpo_20260906_220907`（200/200；step 150 遭容器组级 OOM，用户批准后从 step-125 恢复，
   `recovery/resume_from_125_20260907_140752/`；`analysis/formal_completion_gate.json` 全绿，102,400 条、tool 计数与
@@ -165,7 +186,7 @@
 3. 若用户未来选择恢复E7，先重新review `plans/M5_E7_IMPLEMENTATION_REVIEW.md` 的pin源码、exact boundary、
    compute/storage和专项授权；M6完成不自动批准E7。
 4. 保持E3/E4/E5/E6正式产物、M6 freeze与recovery archives不变；不删除checkpoint腾空间。
-5. **待办（用户 2026-09-07 指定，M9 全部跑完后执行）：验证"关掉 offload"。** 背景见 `reports/qa_log.md` Q17 与
+5. **【2026-09-09 已执行，结果见"当前状态"首条：GPU/数值通过，CPU 泄漏斜率未消除，建议关 offload + 保留分段恢复】待办（用户 2026-09-07 指定，M9 全部跑完后执行）：验证"关掉 offload"。** 背景见 `reports/qa_log.md` Q17 与
    `plans/M9.md` §11（2026-09-07 行）：所有 200-step formal run 都因容器 `memory.max`=128 GiB + `memory.oom.group=1`
    在 step 138–172 被整 pod 杀死；CPU 内存主要来自 veRL FSDP offload 的 pinned 池（actor worker 内约 45 GB 的
    `/dev/zero` 共享映射，只增不还）与 actor worker 匿名内存逐步增长，checkpoint 保存再叠加瞬时峰值。
