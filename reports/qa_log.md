@@ -636,3 +636,94 @@ E3 分 level（MATH500 greedy）：L1–3 零调用与有调用准确率接近�
 **证据**：`plans/M10.md` §1–§3；`rl/configs/e3_grpo_baseline.yaml` 第 6/37–41 行；veRL pin
 `trainer/ppo/core_algos.py:296`（Dr. GRPO 开关注释）与 `trainer/config/_generated_ppo_trainer.yaml:82`（`loss_agg_mode: token-mean`）；
 `PLAN.md` 312–316、479 行；`reports/technical_report.md` M8 行（截断 100%→8.7%）。
+
+## Q23（2026-09-09，秋招简历）：三条如何组织，轮级信用问题能否称 reward hacking？
+
+**场景与问题**：用户反复修订秋招简历，要求取消逐条小标题、按 SFT→GRPO 排列、简化教师与指标细节、不用“初版”暗示迭代次数，并准确解释工具过度调用。
+
+**浓缩答案**：当前文案见 [简历三条版](resume_bullets_autumn.md)，完整会话见 [面试总结](docs/resume_interview_session_20260909.md)。第一条讲管线，第二条讲数据与 SFT→GRPO，第三条讲问题、优势诊断与守恒修正。约 6,000 是轨迹数；34%→19%、59.4%→76.6%、92.9%→0.8% 分属 raw/SFT 探针、MATH500、FULL760 对照。第三条可省略数字，写“大幅降低”，不以“显著”暗示检验。非守恒优势修正引入隐式调用激励，比笼统“解决 reward hacking”更准确；v2 联合调整守恒、门控与打分条件，不支持单项因果归因，相对 E3 准确率未检出显著增益。零和指 token 加权修正和为零，不是梯度/最优策略不变。项目日期按实际记录，可写 2026.07—至今。
+
+**证据**：`plans/M8.md`；`rl/custom/turn_advantage_v2.py`；`eval/runs/m8_e5v2_eval_20260905_134737/metrics/m8_headline.json`；本文件 Q12；[面试总结](docs/resume_interview_session_20260909.md) §1/§4。
+
+## Q24（2026-09-09，数据与编码）：6,000 条是否合理，能否称蒸馏，为什么教师生成与 AgentLoop 分开？
+
+**场景与问题**：用户担心冷启动数据规模偏小、教师型号不够突出，并追问“统一 SFT/RL 多轮交互编码”的实际含义。
+
+**浓缩答案**：面向工具使用可靠性的冷启动 SFT，6,000 条是合理的实验规模，但不能仅凭数量宣称足够。项目对比过 2,500 与约 6,000 条，工具错误率约 22%→19%，未证明饱和。5,403 题去污染子集留出 200 题，5,203 题各采样两次，得到 10,406 候选，经顺序筛选保留 6,056 条、覆盖 3,716 题，含 797 条报错后恢复轨迹。可以称序列/轨迹蒸馏，无教师 logits；更直白的写法为“教师生成轨迹，经拒绝采样用于学生 SFT”。教师生成复用 M1 的本地 SGLang+真实沙箱循环；SFT 制样再通过 veRL ToolAgentLoop 重放已有回复和输出，复用序列拼接及 mask，不重新生成或执行工具。工具返回保留为上下文但不计 loss。该处理是复用框架保证接线一致，不是原创 AgentLoop，也不保证教师/RL 所有预算或生成分布相同。
+
+**证据**：`sft/data/gen/gen_stats.json`、`sft/gen_trajectories.py`、`sft/trace_tokenizer.py`、`sft/test_trace_tokenizer.py`、`plans/M3.md`；[面试总结](docs/resume_interview_session_20260909.md) §2/§3，含外部蒸馏术语参考。
+
+## Q25（2026-09-09，预算）：教师和 GRPO 实际截断多少，为什么选 3,072 token 与 5 轮？
+
+**场景与问题**：用户要求查看原始教师轨迹和 GRPO 评测记录，用实测分布解释长度选择，并核对此前放宽预算的效果及“5 次工具调用”的含义。
+
+**浓缩答案**：
+
+- 本次 CPU 离线重算 10,406 条教师轨迹，累计响应均值 751.95、P95 2,050、P99 3,078.8；超过 2,048/3,072 的分别为 549/109 条（5.28%/1.05%）。保留 6,056 条均值 580.25，逐条与既有长度记录比较 0 mismatch。长度包括工具返回及格式标记，沿用生成筛选 tokenizer 口径。
+- 教师 `truncated=True` 374 条（3.59%）是轮数耗尽；最后一次请求 `finish_reason=length` 另有 213 条（2.05%），不重叠。两类合计 5.64%，但没有每轮 finish reason，不能证明完整捕获中间请求触顶。通过前置筛选后仅 8 条因累计长度 >3,072 被丢弃，8/6,064=0.13%。
+- E3 FULL760 greedy 截断 73/760=9.61%，其中 token 66/760=8.68%，轮数 7/760=0.92%；3 条截断仍答对，因此长预算诊断选取 70 条失败（token 63、轮数 7）。MATH500 greedy 总截断 40/500=8%，token 34/500=6.8%。
+- 诊断同时增加 response 3,072→6,144、工具次数 4→6、assistant 轮数 5→7。16/70=22.86% 转正确，其中原 token 失败修复 11/63=17.46%；其余 14 正常结束仍错、38 再次 token 截断仍错、2 再次轮数耗尽仍错。16 条正确中 1 条仍截断，因此长预算总截断 41/70，不是 40/70。前缀一致仅 17/70，不能归因于单独增加 token 或声称严格续写反事实；不可把选择性重跑结果并入 canonical 总分。
+- “5”是 assistant 回复轮数；实际最多 4 次工具调用，额外一轮处理末次工具结果并作答。E3 greedy 用满 4 次调用 10/760，轮数停止 7/760。预算是短程任务的工程折中，不是搜索出的最优值；当前统计是后验复核支持，不能补写成当初按 P99 选参。后续完整预算搜索应在训练/验证数据上完成，正式评测保持冻结。
+
+**证据**：[面试总结](docs/resume_interview_session_20260909.md) §5–§7（完整表格、只读复核命令及可复述回答）；`eval/runs/m7_unified_eval_20260824_201032/scored/e3_grpo_baseline_step_200/`；`eval/runs/e3_budget_diagnostic_20260828_095658/{metrics.json,comparisons.jsonl}`；`plans/M7_BUDGET_DIAGNOSTIC.md`。本次未训练/生成或重跑模型评测；用户最后授权仅将本会话沉淀到 reports 文档。
+
+## Q26（2026-09-10，M10 步骤 4–6）：训练 200 步后容器匿名内存涨到 60 多 GiB，到底是哪个进程在漏？关掉 FSDP CPU offload 有没有用？
+
+**场景与问题**：Q17 查明六条 200-step run 的"pod 中断"是 128 GiB cgroup 上限下的组级 OOM，但增长源没有定位；
+2026-09-09 的 offload 关闭验证只跑 5 步，观察到 anon 仍以约 0.5 GB/step 增长，并**猜测**泄漏在 AgentLoop/sglang 侧的轨迹缓存或
+reward 沙箱残留（`HANDOFF.md` 2026-09-09 条目）。M10 计划 §1 把"跑的过程中同步定位泄漏进程"列为目标（只诊断不修）。
+E7 formal 全程用 memwatch v2（60 s 一次，按进程读 `/proc/<pid>/smaps_rollup` 的 `Pss_Anon`，`step` 字段读 trainer 每步 fsync 的 ledger）采样。
+
+**浓缩答案**：**泄漏在 `ray::WorkerDict`（actor 与 ref 共置的那个 FSDP worker 进程）内部，占 cgroup anon 增长的 93%；
+不在 AgentLoop、sglang、reward 沙箱或驱动进程。关闭 CPU offload 只把常驻基线从 49 GiB 降到 25 GiB，不改斜率。**
+
+- 证据规模：`rl/runs/e7_dynamic_filtering_20260909_200152/analysis/memwatch_report.{json,md}`，828 个采样 / 16.63 h / 有效 step 1–200；
+  cgroup anon 5.23 → 66.41 GiB（峰值 66.41），`oom_kill` 0，全程未触及 110 GiB 提前分段线。
+- 斜率必须**按驱动 PID 分段拟合**：formal 分 4 段（每段重启、模型重新加载，anon 回落再爬升），逐段 **0.5047 / 0.5382 / 0.5431 / 0.5580 GiB/有效 step**，
+  headline 取 post-startup 采样最多的第 4 段；跨段混拟会得到 0.038 GiB/step 的假数字（`analysis/m10_memwatch_report.py` 显式拒绝混拟）。
+  拟合只用"段内 step 首次增加之后、driver 仍存活"的样本，避免把模型加载和收尾回收算进斜率（`plans/M10.md` §12 两条）。
+- 按 `Pss_Anon` 增量排名，**每段的单个 `ray::WorkerDict` 稳居第一**：第 4 段 9.70 → 29.60 GiB，**0.5213 GiB/step = cgroup 斜率的 93.4%**，RSS 终值 48.6 GiB；
+  四段分别 0.4885 / 0.5042 / 0.5138 / 0.5213 GiB/step。其余进程全部小两个数量级：驱动 actor `ray::E7DynamicF` 0.0024、`sglang::schedul` 0.0019、
+  `gcs_server` 0.0027、`ray::AgentLoopW` 每个 ≤ 0.0011、`ray::SGLangHttp` ≤ 0.0004 GiB/step。
+- 这**否定**了 2026-09-09 的猜测：AgentLoop worker 与 sglang HTTP/scheduler 进程的匿名内存 200 步只涨 0.1–0.5 GiB，轨迹缓存/沙箱残留不成立。
+  E7 一个有效 step 生成 2–4 批（比 E3 多 2.53×），若泄漏与 rollout 数量成正比，E7 斜率应约为 E3 的 2.5×；实测 0.56 vs E3 约 0.35–0.45 GB/step（Q17 口径：psutil used 每 150 步 +51–63 GB），
+  说明增长与**有效 update 次数**而非 rollout 数量挂钩，进一步把嫌疑指向 FSDP worker 内每次 `update_actor`/`compute_log_prob` 相关的宿主端分配
+  （candidates：pinned/host 缓冲、优化器状态的 CPU 副本碎片、glibc arena 增长）。**这一条是推断，不是定位到代码行**；按计划 §1 不修。
+- 工程含义：(1) 128 GiB 容器上，基线 25 GiB + 0.56 GiB/step 意味着约 150 步撞线，所以"每 50 有效 step 计划性分段恢复"是正确且必要的运行纪律，
+  4 段全部无 OOM；(2) 关 offload 换来的是 24 GiB 基线余量与 GPU 余量（142 GB 卡上 max_allocated 43.5 GB），而不是根治；
+  (3) 若要根治，下一步应在 `ray::WorkerDict` 内做 `tracemalloc`/`MALLOC_ARENA_MAX=2` 对照或 `torch.cuda.memory` host 端统计，不是再调 AgentLoop。
+- 面试口径："分布式 RL 训练的匿名内存泄漏，先按 cgroup 看是不是组级 OOM，再按进程 `Pss_Anon` 分段拟合斜率找到进程，最后才进代码；
+  中间任何一步跨段混拟或把启动期算进去都会给出错一个量级的数字。"
+
+**证据**：`rl/runs/e7_dynamic_filtering_20260909_200152/analysis/{memwatch_report.json,memwatch_report.md,container_memory.jsonl}`；
+`scripts/m10/memwatch_v2.sh`、`analysis/m10_memwatch_report.py`（+ `analysis/test_m10_memwatch_report.py` 6 项）；
+`plans/M10.md` §12（2026-09-09 两条 memwatch 偏差、段长决定）与 §13 第 8 行；`rl/runs/e3_offload_check_20260909_150849/analysis/offload_check_compare.md`；本文件 Q17。
+
+## Q27（2026-09-10，M10 判读）：DAPO 动态采样到底有没有用？等 step 赢 5 个点、等算力打平，该怎么讲？
+
+**场景与问题**：M10 评测收工，`m10_headline.json` 机械判读为预注册情形 C（Δ_step +1.44pt CI 跨 0、Δ_compute −0.39pt CI 跨 0），
+但附报的 step-200 终点配对 +5.13pt [+2.63, +7.63] 显著为正。两组数字如何同时成立、面试时怎么讲、能不能写"提升 5pt"。
+
+**浓缩答案**：
+
+- **两组数字不矛盾，差在分母**。E7 step-200 花了 259,072 条 rollout 轨迹，是 E3 的 2.53×；等算力（102,400 条）时 E7 只到有效 step 95，
+  FULL760 greedy .729 vs E3 .733。动态采样在本设置下**没有提高每条 rollout 的学习效率**——把 fixed-100 曲线从"按 step"换成"按累计轨迹"，
+  E7 的 AUC 从 +1.44pt 变成 −1.72pt；sampled 等算力配对 −2.11pt [−3.59, −0.62] 甚至显著为负。它做的事是把 E3 根本不会采的那 1.53 倍 rollout
+  真的采出来训进去，换到一个更高的终点。所以口径是"**等算力无免费午餐，多算力换终点**"，不是"提升 5pt"。
+- **为什么不能说 E7 更强**：没有 E3 在 259,072 条轨迹上的对照（例如从 step 200 续训约 306 步）。E3 的 fixed-100 曲线 step 100 后在 .73–.77
+  震荡像平台，但那是 100 题的面板，分辨不了 5pt。这条缺失的臂是 M10 之后最直接的下一步，需另行授权。
+- **为什么判读是 C 而不是 A**：§9 的 Δ_step 定义在 fixed-100 曲线的 0–200 归一化 AUC 上，+1.44pt 没过 2pt 阈值且 CI [−1.06, +4.13] 跨 0。
+  面板 n=100、CI 宽 5pt，本质上分辨不了 2pt——这是设计时就接受的局限（§9 原文"CI 用验证点上的 bootstrap 近似"），不是事后借口。
+  FULL760 上的等 step 终点 +5.13pt 是另一个量（终点、760 题），§9 明确列为附报、不参与落格。
+- **情形 D 的影子**：等算力 checkpoint 在 MATH L2/L4/L5 各低约 3pt、sampled 低 2.1pt，与"补采样把训练分布推向更难的 mixed 题、95 次 update
+  还没学会"一致；点估计有方向，没过阈值，按 §9 写 C 并注明。
+- **成本发现是独立结论**：零方差比例 34.5%→61.4%、全对组 24%→50%，凑满 64 个 informative 组的批数 2.0→3.06，175 步后开始出现满 4 批的步；
+  约 75% 时会 underfilled。"过滤越往后越贵"与 curriculum 是同一件事的两面：informative 集合向能力边界收缩，rollout 的边际信息量下降。
+  DAPO 原文"总时间没有显著增加"在 1.7B/MATH 池/200 步上不成立。
+- **行为侧**：E7 两个 checkpoint 都比 E3 少调工具（.63–.67 vs .89），step-200 的调用成功率 93% vs 88%、重复代码 0.8% vs 2.9%、截断 6.8% vs 9.6%；
+  没有 E5-v1 式 over-calling。过滤改的是训练分布不是奖励，这些只报相关性。
+- **面试一句话**："我复现了 DAPO 的动态采样并做了算力归一化：按训练步数看它赢 5 个点，按 rollout 数看它打平——论文只画了前一条曲线。
+  它是一个用算力换终点的旋钮，而且越训越贵；要证明它比单纯多训更好，还差一条同预算的对照臂。"
+
+**证据**：`eval/runs/m10_e7_eval_20260910_140124/metrics/{m10_headline,compute_axes}.json`、`transitions/e3_grpo_baseline_step_200__to__e7_{equal_compute,dynamic_filter_step_200}.bootstrap.json`；
+`rl/runs/e7_dynamic_filtering_20260909_200152/e7_ledger.jsonl`；`plans/M10.md` §2/§9/§13；`reports/02_main_results.md` M10 节；本文件 Q22。

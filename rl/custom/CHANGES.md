@@ -137,3 +137,67 @@
   产出 prompt token（与训练时原生 `single_turn_agent` 逐 token 一致，见 `eval/test_m9_notool_eval.py`
   的 `test_notool_prompt_reproduces_the_training_rollout_input`），再调 SGLang 原生 `/generate`；
   采样参数、seed 派生、verifier、配对与 bootstrap 全部 import 冻结代码。
+
+## [M10 / E7] DAPO 式零方差 group 动态过滤与补采样
+
+- **状态**：2026-09-09 按获批 `plans/M10.md` v2 与 `plans/M10_STEP0_BOUNDARY.md`（§3 八处白名单、§4 方案 (b)、§5 resume 语义）实现；
+  **没有修改 veRL site-packages，不 fork**。pin 复核：`trainer/ppo/ray_trainer.py` SHA256
+  `de58d295cf86656a28196b0718168d4a11666f3e30957b7e166914496c2a6d66`、`trainer/main_ppo.py`
+  `e3fe6e73b18d63367402a2570c5ba054a2b05443ac40a168524dbf545b1da392`；另 pin `checkpoint_engine/base.py`
+  （`3640690f…2ae382`）、`utils/checkpoint/checkpoint_manager.py`（`97ad2cf3…cb38a`）与
+  `utils/checkpoint/fsdp_checkpoint_manager.py`（`87036a65…b37d10`），因为等算力 checkpoint 的"改名脱离轮换"
+  与"chunk 间 replicas 保持 awake"依赖它们的语义。启动时 launcher 与 trainer 各自重验。
+- **trainer 子类** `rl/custom/dynamic_filter_trainer.py:DynamicFilterRayPPOTrainer(RayPPOTrainer)`：
+  - `fit()` 由脚本从 pin `ray_trainer.py:1362–1770`（409 行）生成，只含 STEP0 §3 的白名单差异，每处带 `# E7-W<n>`：
+    W1 `:1389` epoch 改按 ledger 已消费批数整除；W2 `:1422–1423` 双层 `for` 改为显式 `iter()` + `while`（`:1716` 的
+    `training/epoch` 随之读 `self._e7_epoch`）；W3 `:1435–1463, 1466–1525` 整段替换为一次 `_e7_collect_informative_batch()`
+    调用；W3a `:1464` `is_last_step` 取 `min(total_training_steps, _e7_stop_step())`；W4 `:1671` 之后追加等算力保存；
+    W5 `:1683` 之后追加 `_e7_log_candidates()`；W6 `:1718` 之后追加 `e7/*` 指标；W7 `on_batch_end` 不变。
+    Fixture R（`rl/custom/test_dynamic_filter.py`）逐行 diff：被删/改的上游行只允许落在
+    `{1389}, {1422–1423}, {1435–1464}, {1466–1525}, {1716}`，新增行必须带标记，其余 `1362–1388, 1390–1421, 1424–1434,
+    1526–1670, 1672–1682, 1684–1715, 1717–1770` 逐字节相同；helper 内每个 chunk 逐字复用
+    `:1435–1449, 1461–1462, 1466–1470, 1472–1480, 1495–1501, 1518–1525`，选定后对 64×8 batch 逐字执行一次 `:1502–1517`
+    与 `:1518–1525`。REMAX 分支去掉（`assert adv_estimator == GRPO`）。
+  - `_e7_collect_informative_batch()`：每 chunk 从同一冻结 actor 生成 64×8，按 `rm_scores.sum(-1)` 判零方差
+    （校验它与 reward extra `score` 逐元素相等、有限、长度 512），最多 4 chunk，取采样顺序前 64 个 informative group；
+    `:1471` 的 `sleep_replicas()` 移到 `finally` 恰执行一次；补采样期间 `_update_actor` 被守卫（`_e7_generation_phase`）
+    拒绝、断言 `global_steps` 不变；chunk 间张量键与 response 填充形状不一致即失败；4 chunk 仍不足 64 → 落盘
+    `predictions/candidates/<step>.underfilled.jsonl` 并抛 `E7UnderfilledError`（在 old-log-prob 之前，不做 update）。
+  - `_save_checkpoint()`：先原子写 `global_step_N/e7_ledger.json`（ledger step 必须等于 `global_steps`），再 `super()`；
+    `_load_checkpoint()`：`super()` 后读同目录 ledger，step 不符/缺失即失败；对上游 `:1095–1103` 的 epoch-boundary 启发式
+    （`global_steps % len(dataloader) == 0` 时静默跳过 dataloader 恢复）**显式失败**；用磁盘上的 `equal_compute_step_*`
+    目录校正/校验 ledger 的等算力标记；重写 run 根目录 `e7_ledger.jsonl` 去掉 checkpoint 之后的陈旧行。
+  - 等算力 checkpoint（W4）：worker `save_checkpoint(..., max_ckpt_to_keep=None)` 写到 `equal_compute_step_N.saving/actor`，
+    加 `data.pt` 与 ledger 后 `os.replace` 改名为 `equal_compute_step_N/`，不写 tracker。**行为差异**：worker 侧
+    `previous_saved_paths` 仍登记了 `.saving` 路径（`remove_previous_save_local_path` 对不存在路径直接跳过，所以永不删除
+    真实目录），但该幻影条目占用一个轮换槽位约 3 次常规保存——等算力保存后的两个常规周期内实际保留的常规 checkpoint
+    为 2 个而非 3 个（更早的一个提前一个周期被删）。不影响数值、不影响 resume（只用最新 tracker checkpoint）。
+  - 分段（§3.5）：`E7_STOP_AT_STEP` 类属性由 launcher 在驱动 actor 进程内设置（不进 resolved config，resume 的逐字
+    config 比对不受影响）；watcher 写 `<run_dir>/e7_stop_request.json` 时在下一个 `save_freq` 倍数处停止。
+  - 证据：`e7_ledger.jsonl`（每有效 step 一行）、`predictions/candidates/<step>.jsonl`（所有候选 group 行，含
+    `role ∈ {selected, surplus, zero_std}`，比 STEP0 W5 写的"zero-std + surplus 行"多出 selected 行，用于守恒与
+    "selected 多重集 == train JSONL"证明；不含文本）、`e7_trainer_active.json` + `e7_trainer_activations.jsonl`
+    （启动打印 `TOOLCREDIT_E7_TRAINER_ACTIVE`）。
+- **驱动边界**（STEP0 §4 方案 (b)，`rl/launch/e7_dynamic_filtering.py:DynamicFilteringTaskRunner`）：mixin `run()`
+  在驱动 actor 内临时把模块全局名 `verl.trainer.main_ppo.RayPPOTrainer` 绑定到 `DynamicFilterRayPPOTrainer`
+  （`main_ppo.py:299` 按名解析），`try/finally` 恢复；已被替换时拒绝叠加；proof `e7_boundary_installation.json`
+  （installed/restored）+ `e7_boundary_activations.jsonl`，启动打印 `TOOLCREDIT_E7_BOUNDARY_ACTIVE`。0 行复制。
+- **配置门禁**：`rl/configs/e7_dynamic_filtering.yaml` 由 E3 复制；`config_diff_gate` 要求 E3→E7 的 resolved diff **精确等于**
+  `{algorithm.filter_groups, trainer.toolcredit_trainer_class, trainer.project_name, rollout.trace.project_name,
+  actor.fsdp_config.{param_offload,optimizer_offload}, ref.fsdp_config.param_offload}` 并断言 `filter_groups` 恰三键
+  `{enable: true, metric: score, max_num_gen_batches: 4}`；smoke / resume_check 只在
+  `trainer.{total_training_steps,save_freq,test_freq}` 上不同。
+- **验证器与脚本（非冻结文件）**：`rl/validate_e7_run.py`（smoke / resume-check / segment / formal / streak 门禁）、
+  `scripts/m10/run_e7.sh`（tmux 入口，单段单次调用）、`scripts/m10/memwatch_v2.sh`（60 s，按进程 `Pss_Anon`，
+  `step` 字段改用 `/usr/bin/grep -a`）、`scripts/m10/watch_e7.py`（anon > 110 GiB / 连续 10 步满 4 批 → stop request）、
+  `analysis/m10_memwatch_report.py`、`analysis/m10_compute_axes.py`（§9 AUC 规则）。
+- **回退路径**：使用 E3 launcher/config 即回到原生 `RayPPOTrainer`；E7 文件均为新增，删除即可。
+- **评测侧（2026-09-10 补记）**：协议 v6 与两个 E7 角色同样**没有**任何框架改动。两个角色都是 TIR，
+  因此 `eval/m10_e7_eval.py` 的生成路径直接复用冻结的 M7 metadata agent loop（`eval.generate.build_m7_loop`）
+  与 SGLang HTTP 适配器，与 E3/E5/E5-v2 逐调用相同；v6 不新增任何 generation mode，整个 `generation_mode`
+  块（含 M9 的 notool 语义）由 `eval/verify_diagnostic_freeze_v6_semantics.py` 作为**冻结字段**逐字节校验。
+  等算力角色的定位 `checkpoints/equal_compute_step_<N>/` 中的 `N` 由 run ledger 判定后从磁盘发现并写入协议，
+  `verify()` 每次重新比对；计划只冻结规则不冻结数值。
+  2026-09-10 步骤 5 实跑补记：`eval/m10_e7_eval.py generate-shard` 增加 `--limit-questions`（仅 smoke 用，M9 `generate-role` 同款），
+  v6 冻结因此在生成任何轨迹前重建一次（manifest `7ed92f8c…` → `26d89b19…ccc63`）；等算力 step 实测为 95。全量评测 7,600/7,600，
+  判读情形 C（`eval/runs/m10_e7_eval_20260910_140124/metrics/m10_headline.json`）。仍然零框架改动。

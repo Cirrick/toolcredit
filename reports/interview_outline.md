@@ -1,5 +1,7 @@
 # ToolCredit interview outline
 
+2026-09-09 简历追问补充：优先结合 [当前三条简历](resume_bullets_autumn.md) 和 [本次面试会话总结](docs/resume_interview_session_20260909.md) 使用。后者覆盖轨迹蒸馏、拒绝采样、AgentLoop 重放、token 预算、4 次工具调用/5 轮回复、E3 截断与长预算诊断，以及轮级信用方案的归因边界。下方保留既有阶段性叙述；M7 的 E3 strongest 结论对应当时参与比较的模型，不能代替后续 M8/M9 结论。
+
 ## 60-second version
 
 我研究的是multi-turn工具RL里的credit assignment：标准GRPO把trajectory outcome优势广播给每个turn，我做了

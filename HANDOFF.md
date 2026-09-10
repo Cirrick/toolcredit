@@ -2,6 +2,38 @@
 
 ## 当前状态
 
+- **2026-09-10（晚）：M10 / E7 全部完成（步骤 0–6），预注册判读情形 C，tag `m10`。** 评测 `eval/runs/m10_e7_eval_20260910_140124`
+  （协议 v6，manifest `26d89b19…ccc63` 138 文件；7,600/7,600，exact-key digest `6be60168…3d73`；49 产物 `hashes.sha256` `10cd3e26…e0a5`；
+  复用 M7 157 + M8 30 + M9 93 个 canonical 产物三次重验）。物化 `eval/checkpoints/m10_e7_{dynamic_filter_step_200,equal_compute}_hf`
+  （各 3.3 GB，manifest `eval/materialization/e7_*.json`）。
+  **主判据**：Δ_step（fixed-100 greedy 0–200 归一化 AUC，E7 .7256 vs E3 .7113）**+1.44pt CI [−1.06, +4.13]**（题级配对 bootstrap 10k）；
+  Δ_compute（FULL760 greedy，E7 等算力 step-95 .729 vs E3 step-200 .733）**−0.39pt CI [−2.89, +2.11]**（45 fixed / 48 new）→ 两轴持平 → **情形 C**。
+  **附报**：E3→E7 step-200 **+5.13pt [+2.63, +7.63]**（69/30；.784 vs .733；2.53× rollout）；E7-eq→E7-200 +5.53pt [+3.16, +8.03]；
+  累计轨迹轴 AUC [0, 102,400] E7 .6941 vs E3 .7113 = −1.72pt；sampled matched-index E3→E7-200 +3.68 [+2.27, +5.13]、E3→E7-eq −2.11 [−3.59, −0.62]；
+  level：E7-200 增益集中 L5 +7.46 / L3 +4.76 / L4 +3.91 / AIME +13.3/+16.7（n=30），E7-eq 在 L2/L4/L5 各 −3pt。
+  行为（greedy FULL760）：mean calls E3 .888 / E7-eq .630 / E7-200 .668；截断 9.6% / 10.1% / 6.8%；per-call 成功 88.2% / 90.0% / 93.3%；
+  重复代码 2.9% / 1.4% / 0.8%；4-call 1.3% / 0.9% / 0.7%；无 over-calling。
+  **读法**（写进 02 节与 technical report §13）：等算力无免费午餐；step-200 的 +5pt 是"用 2.53× rollout 换终点"，缺 E3 同预算臂，不得归因于过滤本身。
+  **训练侧独立发现**：零方差 34.5→61.4%、全对组 24→50%、每步批数 2.0→3.06——过滤成本随策略变准单调上升，约 75% 时会 underfilled。
+  **执行记录**：回归 350 passed；smoke 模式补 `--limit-questions`（M9 同款）后 v6 冻结在生成前重建一次（两次语义校验都过）；
+  全量生成保持 M7/M8 的逐题串行；评测墙钟 9 h 32 min，其中约 4 h 是 pod 上用户另一项目（`~/wireless_AI/beam_anymodal_kd`，8 个训练进程 ×12 worker）
+  的 CPU 争用把 SGLang 解码从 435 拖到 72 tok/s，按禁止事项 #6 未触碰；修正了上一会话把 §13 第 3/4 行误替换进 `plans/M10.md` §0 的问题
+  （按 HEAD 逐字恢复，记 §12）。`plans/M10.md` §12 新增 8 行、§13 第 5/6/7/9 行已填。qa_log Q26（泄漏进程诊断）、Q27（判读与面试口径）。
+  **E7 run 的 185 GiB checkpoint 目录（8 常规 + 1 等算力）尚未删除**：物化只引用 `global_step_200` 与 `equal_compute_step_95`，其余 7 个（约 150 GiB）可删，等用户裁定。
+  **下一步需另行授权**：(a) E3 同预算对照臂——从 E3 step-200 续训到累计 259,072 条轨迹（约再 306 步，按 E3 单步 161 s 约 14 h）或在 E7 内按 E3 预算截断的多点比较；
+  (b) 过滤降本变体（按需缩批、跨 snapshot 回收 surplus）；(c) 泄漏根治仍不在范围内（`ray::WorkerDict` 内 `tracemalloc`/`MALLOC_ARENA_MAX` 对照）。
+
+- **2026-09-10（午）：M10 / E7 步骤 1–4 全部完成，200 有效 step 的 formal 训练收工，两个门禁全绿。【步骤 5–6 已于当晚完成，见上一条；本条保留为训练侧记录】**
+  **训练 run**：`rl/runs/e7_dynamic_filtering_20260909_200152`，2026-09-09 20:01 → 2026-09-10 12:37，总墙钟 16 h 35 min（其中第 3→4 段之间因本地会话重启终止 tmux server 空转 2 h 48 min，训练进程未在步中被杀，见 `plans/M10.md` §12）。
+  4 段 `--stop-at-step` 50/100/150/200，trainer/boundary activation 各 4 次，两个 pin SHA 逐段复验一致，恢复归档 `recovery/resume_from_{50,100,150}_*`。
+  `analysis/segment_gate.json` 与 `analysis/formal_completion_gate.json` 均 `status=completed`（后者是 v6 冻结按文件名绑定的那份，由 launcher 在最后一段自动追加）。
+  **ledger（200 行）**：批数直方图 `{2: 97, 3: 100, 4: 3}`，平均 **2.53 批/有效 step**；`selected_groups` 恒 64；`underfilled` 全 0；用满 4 批的只有 step 175/181/200 三步，**最大连续满批 1 步**（硬停线是 10 步）；累计 **259,072 条轨迹（E3 的 2.53×）**、32,384 题、2.579 亿 rollout token、generation 累计 6.64 h。
+  **零方差比例逐段上升 34.5% → 46.3% → 54.9% → 61.4%**（step 200 当步 63.7%）。这是 M10 的一个独立发现：策略越准，DAPO 式过滤越贵，每步平均批数从 2.0 涨到 3.0 以上。**必须报双 x 轴**，等 step 的比较会系统性高估 E7。若零方差再涨到约 75%，4 批将凑不满 64 组而显式 underfilled——本 run 没到。
+  **等算力 checkpoint**：`checkpoints/equal_compute_step_95`，累计**恰好 102,400** 条（= E3 总量），不写 tracker、不参与轮换，21.9 GB。常规 checkpoint 25/50/…/200 共 8 个（分段导致每段轮换独立，实际保留 8 个而非 3 个，见 §12），tracker=200，checkpoints 目录共 185 GiB，**步骤 6 收尾确认前不要删**。
+  **fixed-100 greedy 曲线（step: E7 / E3）**：0: .61/.60、25: .65/.67、50: .73/.67、75: .73/.70、100: .72/.73、125: .76/.73、150: .78/.74、175: .75/.77、200: **.76/.76**。E7 中段领先、终点打平；面板只有 100 题，1pt = 1 题，**不要据此下结论**，Δ_step 要按 `analysis/m10_compute_axes.py` 的冻结 AUC 规则算。
+  **匿名内存泄漏定案**（`analysis/memwatch_report.{json,md}`，828 采样 / 16.63 h / steps 1–200）：cgroup anon 5.23→66.41 GiB，峰值 66.41，`oom_kill` 0，全程未触及 110 GiB 提前分段线。按驱动 PID 分 4 段拟合，逐段 **0.5047 / 0.5382 / 0.5431 / 0.5580 GiB/有效 step**（headline 取 post-startup 采样最多的第 4 段；跨段混拟会给 0.038 的假数字）。按 `Pss_Anon` 增量排名，**每段的单个 `ray::WorkerDict`（actor 与 ref 共置的 FSDP worker）稳居第一**，第 4 段 0.5213 GiB/step = cgroup 斜率的 **93.4%**（9.70→29.60 GiB，RSS 终值 48.6 GiB）；驱动 actor 0.0024、`sglang::schedul` 0.0019、`gcs_server` 0.0027、`ray::AgentLoopW` ≤ 0.0011 GiB/step。**这否定了本文件 2026-09-09 条目里的假设**（怀疑 AgentLoop/sglang 轨迹缓存或 reward 沙箱残留）：泄漏在 FSDP worker 进程内；关闭 CPU offload 只把常驻基线从 49 GiB 降到 25 GiB、不改斜率。按 `plans/M10.md` §1 只诊断不修，结论写 qa_log 是步骤 6 的硬要求。
+  **步骤 5 的代码已经写好但一次都没在真实数据上跑过**：`eval/checkpoints_v6.py`、`eval/build_diagnostic_freeze_v6.py`、`eval/verify_diagnostic_freeze_v6_semantics.py`、`eval/m10_e7_eval.py`、`scripts/m10/run_m10_eval.sh`、`analysis/m10_compute_axes.py`；单测 `eval/test_checkpoints_v6.py` 18 + `eval/test_m10_e7_eval.py` 38 + `analysis/test_m10_compute_axes.py` 4 全绿；评测侧对 veRL 零改动。E7 run 路径与门禁路径已硬编码在 `eval/checkpoints_v6.py`，新会话不需要传参。
+
 - **2026-09-09：M10 草案 v2 已批准；步骤 0 完成并批准（`plans/M10_STEP0_BOUNDARY.md` §8，用户授权助手决定：8 处白名单、驱动边界方案 (b)、resume 显式拒绝启发式）。下一会话按 `plans/M10_KICKOFF_PROMPT.md` 执行步骤 1–6；M10 相关文件尚未 commit。** 21.9 GB offload-check checkpoint 已按用户指令删除（`checkpoint_cleanup.json`）。
 
 - **2026-09-09：offload 关闭验证（下方"下一步"第 5 条）完成，结论为"部分通过"。** run `rl/runs/e3_offload_check_20260909_150849`（formal 形状 5 步 + step-5 checkpoint，resolved config 相对 E3 只差 6 路径：`actor.fsdp_config.{param,optimizer}_offload`、`ref.fsdp_config.param_offload` 置 false 与 `trainer.{total_training_steps,save_freq,test_freq}=5`）。对照表见 `analysis/offload_check_compare.md`（同目录 `.json` 与 `container_memory.jsonl`）。四项验证：(a) 数值：5 步 prompt 与 E3 完全相同，score .508/.588/.533/.591/.556 vs E3 .531/.570/.522/.610/.552，pg_loss/entropy/KL/grad_norm 同量级，**非逐位一致**（sglang 采样非确定，E3 自身重跑也不会逐位一致）；(b) GPU：max_allocated 43.5 GB 与 E3 相同，reserved 63.1 vs 50.2 GB，无 OOM，142 GB 卡上余量充足；(c) CPU：WorkerDict RSS 25 GB（E3/M9 49–50 GB），psutil used 159–163 vs E3 167–188 GB，pinned 池消失、基线降约 25 GB；**但 cgroup anon 在训练段仍以约 0.5 GB/step 线性增长**（39.0→41.7 GB / 5 步，WorkerDict 22.4→24.9 GB），与 E3 每 150 步 +51–63 GB 的斜率同量级，即泄漏源不是 offload 池本身；线性外推 200 步 anon 约 140 GB，**仍可能撞 128 GiB**。checkpoint 写入时 page cache 冲到 107 GB（可回收，anon 不变）；(d) 速度：单步 165–189 s vs E3 151–167 s，差异全在 gen（54–77 vs 48–57 s），old_log_prob/ref/update_actor 相同；5 步样本太少，不定论。**建议**：M10+ 关闭 offload（三条 diff 进允许集合，标为纯基础设施差异）**并且保留 step-100 计划性分段恢复**；如需根治，下一步应在更长 run 上按 `smaps_rollup` 定位 anon 增长进程（候选：AgentLoop/sglang HTTP 侧的轨迹缓存、reward 沙箱残留），不是再调 FSDP。memwatch 的 `step` 字段在本 run 恒为 0（读 log 的 grep 未命中，时间戳可用），待修。21 GB smoke checkpoint 未删。新增文件：`rl/launch/e3_offload_check.py`、`scripts/infra/run_offload_check.sh`、`analysis/offload_check_compare.py`；qa_log 新增 Q22（DAPO vs Dr.GRPO，用户决定先做 M10）。

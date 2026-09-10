@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-**当前 Milestone: M0–M9 全部完成（M9 E3-NoTool 无工具对照臂，tag `m9`，2026-09-07，预注册判读情形 B：工具未提供额外准确率）；M10（E7 零方差过滤）为草案待批准。待办：验证关闭 FSDP CPU offload（见 HANDOFF 下一步第 5 条）。E7/M10、额外 seed、β sweep、§3.4 变体、CoT-SFT 对称起点仍需另行授权 | 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
+**当前 Milestone: M0–M10 全部完成（tag `m10`，2026-09-10）。M10 / E7 DAPO 式零方差过滤：训练 `rl/runs/e7_dynamic_filtering_20260909_200152`（200 有效 step，259,072 条轨迹 = E3 2.53×，等算力 checkpoint step 95），评测 `eval/runs/m10_e7_eval_20260910_140124`（协议 v6，7,600/7,600），预注册判读**情形 C**（Δ_step +1.44pt CI [−1.06,+4.13]、Δ_compute −0.39pt CI [−2.89,+2.11]；附报 2.53× rollout 的终点 +5.13pt [+2.63,+7.63]，缺 E3 同预算臂）。匿名内存泄漏定位到 `ray::WorkerDict`（只诊断不修）。E7 run 的 185 GiB checkpoints 待用户裁定删除。没有获批的新实验：E3 同预算对照臂、过滤降本变体、额外 seed、β sweep、§3.4 变体、CoT-SFT 对称起点均需另行授权 | 平台: GH200/aarch64 JupyterHub pod（无 docker，conda env `toolcredit`）**
 
 （每个 Milestone 完成后更新本行；会话结束更新 `LOG.md`；交接状态写 `HANDOFF.md`。）
 

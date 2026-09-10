@@ -440,3 +440,147 @@ step-200 → step-125 的直接配对为 **−0.26pt，CI [−2.50, +1.97]**（3
 情形 B 的判读对 checkpoint 选择不敏感。这也反过来印证了 §4 把 fixed-100 定为"机制指标、不作判读依据"是对的：
 n=100 的曲线波动（标准误约 4.4pt）不足以支撑"过拟合"或"训练不足"的结论。
 step-125 行为：response 882 token、截断 8.03%、boxed 缺失 7.24%、tool 标签 0/760。
+
+## M10 E7：DAPO 式零方差 group 动态过滤与补采样（canonical，2026-09-10）
+
+### 动机：一半 batch 没有梯度
+
+GRPO 的组内优势 `A_i = (r_i − mean)/std`，同一 prompt 的 8 条 rollout 得分相同则整组优势恒为 0。按真正进入优势的标量
+`score`（answer + 0.1 format）统计，E3 全程零方差组均值 44%、末 25 步 53%（M9 无工具臂 44.6%→56.3%）。这些组耗掉 rollout
+算力却不贡献 policy gradient，还留在 `token-mean` 的分母里稀释梯度量级（`plans/M10.md` §1 机制补正）。M10 只做 DAPO 四件里
+唯一对应这个已量化病灶的组件——**动态采样**：每个有效 update 丢掉 `std(score)=0` 的组，用**同一冻结 actor** 整批补采样
+（64 题 × 8），最多 4 批，取前 64 个 informative 组进优势；surplus 只存证据。E3 → E7 的 resolved-config diff 精确等于预注册的
+7 条路径（`filter_groups` 三键 + trainer 标记 + 两个 project_name + **三条纯基础设施的 offload 关闭**）。
+
+计划 §2 的硬约束：**必须同时报两条 x 轴**（有效 step、累计 rollout 轨迹）与等算力配对，否则会把"多花 2.5 倍 rollout"写成"算法更快"。
+
+### 训练侧：过滤的成本随策略变准单调上升
+
+`rl/runs/e7_dynamic_filtering_20260909_200152`，200/200 有效 step，4 段计划性分段恢复（每 50 步，`recovery/resume_from_{50,100,150}_*`），
+`analysis/formal_completion_gate.json` 全绿：`underfilled` 全 0、`selected_groups` 恒 64、候选三类守恒、selected 多重集与训练 JSONL 逐条一致。
+
+| 有效 step | 平均批数 | 零方差比例（score） | 全对组 | 全错组 | mixed 组（acc） |
+|---|---|---|---|---|---|
+| 1–50 | 2.00 | 34.5% | 24.0% | 20.6% | 55.4% |
+| 51–100 | 2.20 | 46.3% | 36.4% | 16.4% | 47.1% |
+| 101–150 | 2.86 | 54.9% | 44.2% | 15.7% | 40.1% |
+| 151–200 | **3.06** | **61.4%** | 49.7% | 15.7% | 34.6% |
+
+批数直方图 `{2: 97, 3: 100, 4: 3}`，均值 **2.53**；用满 4 批的只有 step 175/181/200，最大连续 1 步（硬停线 10）。
+累计 **259,072 条轨迹 = E3 的 2.53×**（2.579 亿 rollout token，generation 累计 6.64 h）。**等算力 checkpoint 落在有效 step 95**
+（累计恰好 102,400 条 = E3 全程）。
+
+这是 M10 的一个独立发现：**策略越准，DAPO 式过滤越贵**。全对组从 24% 涨到 50%，把一个 64 组 batch 凑满所需的批数从 2.0 涨到 3.06。
+外推到零方差约 75% 时 4 批将凑不满 64 组而显式 underfilled——本 run 没到，但 200 步之后不远。
+
+fixed-100 greedy 曲线（step 0/25/…/200）：E7 .61/.65/.73/.73/.72/.76/.78/.75/.76，E3 .60/.67/.67/.70/.73/.73/.74/.77/.76。
+面板只有 100 题（1pt = 1 题），只用于 §9 的 Δ_step。
+
+匿名内存泄漏定案（`analysis/memwatch_report.md`，计划 §1 只诊断不修）：cgroup anon 0.505/0.538/0.543/**0.558** GiB/有效 step（4 段），
+**93.4% 来自单个 `ray::WorkerDict`（actor + ref FSDP worker）**，AgentLoop/sglang/驱动各 ≤ 0.003 GiB/step；关 offload 只把基线从
+49 GiB 降到 25 GiB、不改斜率。详见 `reports/qa_log.md` Q26。
+
+### 评测：协议 v6，只加两个 TIR role
+
+v6 manifest `26d89b19…ccc63`（138 文件；v5 的 107 文件闭包逐字节不变）。语义校验证明 **13 个冻结字段**（v5 的 12 个加上整个
+`generation_mode` 块——v6 不新增任何生成模式）逐字节相同，只新增 `e7_dynamic_filter_step_200`、`e7_equal_compute` 两个角色、
+M10 evaluator 绑定与两组 E3→E7 primary 配对。两个角色都走冻结的 M7 metadata agent loop，与 E3 逐调用相同；**评测侧对 veRL 零改动**。
+
+`eval/runs/m10_e7_eval_20260910_140124`：7,600/7,600（exact-key digest `6be60168…3d73`），infra failure 0，49 个产物 hash ledger
+`10cd3e26…e0a5`；复用 M7 157、M8 30、M9 93 个 canonical 产物并在 freeze、每个 shard 生成前、downstream 前各重验一次。
+
+| greedy FULL760 pass@1 | 累计 rollout 轨迹 | 有效 update | pass@1 |
+|---|---|---|---|
+| E3 step-200 | 102,400 | 200 | 557/760 = **.733** |
+| E7 equal-compute（step 95） | **102,400** | 95 | 554/760 = **.729** |
+| E7 step-200 | 259,072（2.53×） | **200** | 596/760 = **.784** |
+
+### 预注册判读：情形 C
+
+| 判据 | 定义（`plans/M10.md` §9） | 值 | 95% CI | 方向 |
+|---|---|---|---|---|
+| **Δ_step** | fixed-100 greedy 曲线按有效 step 0–200 的归一化 AUC，E7 − E3 | E7 .7256 vs E3 .7113 = **+1.44pt** | [−1.06, +4.13]（题级配对 bootstrap，10k） | 持平 |
+| **Δ_compute** | FULL760 greedy 配对，E7-equal-compute − E3 step-200 | 45 fixed / 48 new = **−0.39pt** | [−2.89, +2.11]（source 分层 bootstrap，10k） | 持平 |
+
+两轴皆"持平"（阈值 ±2pt 且 CI 不跨 0）→ **情形 C**。按预注册写法：
+
+> **E3 的 44% 零方差组对学习曲线的影响有限；在等有效 step 的 fixed-100 曲线与等 rollout 算力的 FULL760 终点上都未检出差异
+> （CI 跨 0 ≠ 无影响）。**
+
+附报（§9 明确"不参与落格"，但必须同时披露）：
+
+| 配对（greedy FULL760，10k bootstrap） | 地位 | fixed / new | Δ | 95% CI |
+|---|---|---|---|---|
+| E3 → E7 equal-compute | **primary（Δ_compute）** | 45 / 48 | −0.39pt | [−2.89, +2.11] |
+| **E3 → E7 step-200** | 等 step 终点（附报） | 69 / 30 | **+5.13pt** | **[+2.63, +7.63]** |
+| E7 equal-compute → E7 step-200 | descriptive | 66 / 24 | +5.53pt | [+3.16, +8.03] |
+
+- **累计轨迹轴 AUC**（共同区间 [0, 102,400]，验证点线性插值）：E7 .6941 vs E3 .7113 = **−1.72pt**。同一条 fixed-100 曲线，
+  换成算力轴后 E7 从领先变落后——这就是 §2 要求双 x 轴的原因。
+- sampled（exploratory，按 M7 guardrail 不作因果主张）：FULL760 pass@1/@2/@4 E3 .743/.811/.857、E7-eq .722/.790/.833、
+  E7-200 .780/.833/.870；matched-index 配对 E3→E7-200 **+3.68pt [+2.27, +5.13]**，E3→E7-eq **−2.11pt [−3.59, −0.62]**（负向且不跨 0）。
+- 次级算力轴：E7 总 rollout token 2.579 亿、generation 墙钟 6.64 h（E3 未按同口径记录 token 总量，只报 E7 侧绝对值与 2.53× 轨迹比）。
+
+### 怎么读这两组看似矛盾的数字
+
+等 step 终点 +5.13pt 显著为正，等算力终点 −0.39pt 持平、sampled 甚至略负，两者**不矛盾**：E7 step-200 花了 2.53 倍的 rollout。
+动态采样在本设置下**没有提高每条 rollout 的学习效率**（等算力持平、轨迹轴 AUC −1.7pt），它做的是把"本来会被零方差组浪费掉、
+但 E3 根本不会去采的那 1.53 倍 rollout"**真的采出来并训进去**，换到一个显著更高的终点。
+
+不能下的结论：**"E7 比 E3 强"**。E3 没有一条 259,072 条轨迹的臂（例如再训 100 步），本计划无法区分"+5.13pt 来自过滤"与
+"+5.13pt 来自多训 1.53 倍 rollout"。E3 的 fixed-100 曲线从 step 100 起在 .73–.77 间震荡，看起来已平台，但 fixed-100 分辨不了 5pt。
+这条缺失的对照臂是 M10 之后最直接的下一步（见结论）。
+
+能下的结论：(1) 在等 rollout 预算下，DAPO 动态采样对 1.7B/E3 配方**没有免费午餐**——情形 C 就是这个意思；
+(2) 它是一个**用算力换终点的旋钮**，而且**越往后越贵**（批数 2.0→3.06）；(3) 等算力 checkpoint（step 95）在 L2/L4/L5 各低 3pt、
+sampled 低 2.1pt，与"补采样把训练分布推向更难的 mixed 题、95 次 update 还没把它们学会"一致——计划 §9 情形 D 的机制在
+点估计上有影子，但没过阈值。
+
+### 行为与 level 分解
+
+| greedy FULL760 | E3 | E7 equal-compute | E7 step-200 |
+|---|---|---|---|
+| mean tool calls | .888 | .630 | .668 |
+| 4-call 比例 | 1.3% | 0.9% | 0.7% |
+| 截断率 | 9.6% | 10.1% | **6.8%** |
+| per-call 执行成功率 | 88.2% | 90.0% | **93.3%** |
+| 重复代码轨迹率 | 2.9% | 1.4% | **0.8%** |
+| 成功结果未采纳/误读 | 9.1% | 5.5% | **4.6%** |
+| 平均 response token | 978 | 894 | 940 |
+| invalid | 2 | 0 | 0 |
+
+E7 两个 checkpoint 都比 E3 **少调工具**（.63–.67 vs .89），而 step-200 的调用质量更高（成功率 +5pt、重复代码 −2pt、截断 −3pt）；
+没有 E5-v1 式的 over-calling。行为差异是**相关性**——过滤改变的是训练分布，不是奖励——不作因果归因。
+
+| stratum | n | E3 | E7-eq（Δ） | E7-200（Δ） |
+|---|---|---|---|---|
+| MATH L1 | 43 | .953 | .953（0） | .953（0） |
+| MATH L2 | 90 | .900 | .867（−3.33） | .922（+2.22） |
+| MATH L3 | 105 | .848 | .876（+2.86） | .895（+4.76） |
+| MATH L4 | 128 | .797 | .766（−3.12） | .836（+3.91） |
+| **MATH L5** | 134 | .522 | .493（−2.99） | **.597（+7.46）** |
+| GSM8K | 200 | .830 | .850（+2.00） | .870（+4.00） |
+| AIME2024 | 30 | .133 | .167（+3.33） | .267（+13.33 [+3.33, +26.67]） |
+| AIME2025 | 30 | .133 | .133（0） | .300（+16.67 [+3.33, +30.00]） |
+
+per-source greedy（E3→E7-200）：MATH500 +4.40pt [+1.00, +7.80]、GSM8K +4.00pt [0.00, +8.00]、AIME 两组各 30 题 CI 极宽。
+E7-200 的增益**集中在 L4–5 与 AIME**——正是 E7 后期 informative 集合集中的那类题；L1 完全不变。等算力 checkpoint 则在 L2/L4/L5 反向。
+
+### 结论与限制
+
+1. **预注册判读：情形 C。** 等有效 step 的 fixed-100 AUC +1.44pt（CI 跨 0）、等 rollout 算力的 FULL760 终点 −0.39pt（CI 跨 0）。
+   DAPO 动态采样在 1.7B、≤4 轮、MATH 池、E3 配方下**没有提高每单位 rollout 算力的学习效率**。
+2. **必须同时说的：** 多花 2.53× rollout 后终点 +5.13pt [+2.63, +7.63]（sampled +3.68pt），增益集中在难题。这是"算力换终点"，
+   不是"算法更快"；缺 E3 同预算臂，不能归因于过滤本身。
+3. **成本随训练上升**：零方差 34.5%→61.4%，批数 2.0→3.06；DAPO 原文"总时间没有显著增加"的说法在本设置下不成立。
+4. 限制：单 seed、单规模、单 horizon；等算力比较用的是 step-95 的 checkpoint（95 次 update vs E3 的 200 次），"等算力"
+   同时意味着"更少 update"，两者在本设计里不可分；fixed-100 面板 n=100，Δ_step 的 CI 宽 5pt，本质上分辨不了 2pt 阈值。
+
+下一步（需另行授权）：E3 再训 100 步到 259,072 条轨迹（或 E7 在 step 95 之后按 E3 预算截断）补上缺失的对照臂；
+在过滤成本已升到 3 批/步的后期，比较"按需缩批"或"跨 snapshot 回收 surplus"等降本变体。
+
+证据入口：`eval/runs/m10_e7_eval_20260910_140124/metrics/m10_headline.json`（含机械判读 `preregistered_case`）、
+`metrics/{compute_axes,pass_at_k,tool_behavior,completeness}.json`、`transitions/*.json`、`hashes.sha256`；训练侧
+`rl/runs/e7_dynamic_filtering_20260909_200152/{e7_ledger.jsonl,analysis/formal_completion_gate.json,analysis/memwatch_report.md}`；
+协议 `eval/diagnostic_protocol_v6.json`、`eval/diagnostic_freeze_v6.sha256`、`plans/M10_DIAGNOSTIC_FREEZE_V6.md`、
+`eval/runs/m10_freeze_v6_semantics_2026-09-10T131159Z.json`。
