@@ -4,6 +4,9 @@
 > 总工期：3 周（约 21 天）。硬件：本地 RTX 5090（32GB，调试）+ 服务器单卡 ~144GB 显存（正式训练）。
 > 本文档同时是面试准备材料：每个 Milestone 附带「面试官可能问什么、怎么答、证据在项目哪里」。
 
+> **修订记录**
+> - 2026-09-09：把全文的基座模型从原计划的 Qwen2.5-1.5B/3B 更正为实际使用的 **Qwen3-1.7B**（M1 阶段已决策并批准，见 `plans/M1.md`，但当时未回写本文档）。涉及 §1.1、§1.2、§4、§5.2、§7.2、§7.3、§12、§14；§7.1 与 §12.2 的蒸馏教师另注实际采用的本地 Qwen3-8B。
+
 ---
 
 ## 0. 项目定位
@@ -45,15 +48,16 @@
 |---|---|---|
 | 训练框架 | **veRL**（pin 到一个具体 release，写进 README） | 原生支持 multi-turn rollout + tool calling；工业界认可度高 |
 | Rollout 引擎 | SGLang（veRL multi-turn 官方路径）或 vLLM | 以 pin 版本的官方文档为准 |
-| 基座模型 | Qwen2.5-1.5B-Instruct（调试）/ **Qwen2.5-3B-Instruct（主力）** / Qwen2.5-7B-Instruct（余力时） | Qwen2.5 系列是 RLVR 社区文档最全的基座 |
+| 基座模型 | **Qwen3-1.7B（主力，实际采用）** / Qwen3-4B / Qwen3-8B（余力时，均未使用） | M1 决策（见 `plans/M1.md` §基座模型决策）：veRL 0.8.0 官方 agent-loop 示例与 `qwen25` tool-call parser 直接支持，1.7B 在单卡上留出多轮 rollout 显存余量。全部实验的唯一基座是 Qwen3-1.7B |
 | 答案验证 | `math-verify`（HuggingFace）+ sympy fallback | 数学答案等价性判定 |
 | 沙箱 | 子进程 + 超时 + 禁网络 + 受限 builtins；或 veRL 自带 sandbox 方案 | 见 §5 |
 | 实验追踪 | Weights & Biases（或 TensorBoard 兜底） | 每个 run 必须有唯一 name 与 config 快照 |
 
 ### 1.2 硬件分工
 
-- **5090（32GB）**：全部开发调试、单元测试、1.5B smoke test、数据处理、评测脚本。
-- **144GB 服务器**：3B/7B 正式训练与蒸馏数据生成。
+- **5090（32GB）**：全部开发调试、单元测试、1.7B smoke test、数据处理、评测脚本。
+- **144GB 服务器**：1.7B 正式训练与蒸馏数据生成。
+- 实际执行：全部 Milestone（含开发调试）均在 GH200/aarch64 单卡上完成，5090 侧未参与。
 - ⚠️ **注意服务器平台**：若为 GH200（Grace-Hopper，ARM/aarch64 平台），PyTorch / vLLM / flash-attn 的预编译 wheel 支持不全，**优先使用 NVIDIA NGC PyTorch 容器**，并在第 1 天就验证 veRL 能在该平台跑通官方示例；若为 H200（x86，141GB），无此问题。这一步失败是全项目最大的日程风险，必须最先排除。
 
 ### 1.3 Coding agent 全局约束
@@ -155,7 +159,7 @@ toolcredit/
 **任务**：
 1. 服务器上用 NGC 容器（如为 GH200）或裸环境装好 veRL（pin 版本），**原样跑通官方 multi-turn tool 示例**（GSM8K + code interpreter 类示例），确认 rollout、工具调用、训练 loop 全部工作。
 2. 建立目录骨架，写 `scripts/run_smoke_test.sh`：20 条 toy 数据 → 生成 → 验证 → 一次梯度更新，全程 < 10 分钟。
-3. 5090 上用 1.5B 复跑同一 smoke test（验证本地调试链路）。
+3. 5090 上用 1.7B 复跑同一 smoke test（验证本地调试链路）。
 
 **验收标准**：两台机器 smoke test 均通过；`environment.md` 完成。
 
@@ -173,7 +177,7 @@ toolcredit/
 
 ### 5.2 工具增益预实验（`tool_gain_probe.py`）
 
-用 Qwen2.5-3B-Instruct，在 MATH 各 level 分层抽样（每层 100 题），两种设置各测一次：(a) 纯 CoT prompting；(b) 带 Python 解释器的 TIR prompting（少样本示例引导工具格式）。温度 0.6，n=4，报告 pass@1。
+用 Qwen3-1.7B，在 MATH 各 level 分层抽样（每层 100 题），两种设置各测一次：(a) 纯 CoT prompting；(b) 带 Python 解释器的 TIR prompting（少样本示例引导工具格式）。温度 0.6，n=4，报告 pass@1。
 
 **产出 `reports/01_tool_gain.md`**：工具增益 vs 难度曲线；据此选定训练子集（预期为 level 3–5 中计算密集题，目标 3–5k 条）。若全难度层增益都 < 3 个点 → 换更难数据（AMC/AIME 风格的开源集或 MATH level 4–5 全量），本步骤重跑。
 
@@ -234,13 +238,13 @@ r = 1.0 * answer_correct
 
 ### 7.1 蒸馏轨迹生成（`sft/gen_trajectories.py`）
 
-- 教师：优先用 API（DeepSeek / Qwen 系列 API，成本可忽略）；备选在 144GB 服务器上部署量化的 Qwen2.5-72B-Instruct 或直接用 Qwen2.5-Math-7B-Instruct 的 TIR 模式。
+- 教师：优先用 API（DeepSeek / Qwen 系列 API，成本可忽略）；备选在 144GB 服务器上部署量化的 Qwen2.5-72B-Instruct 或直接用 Qwen2.5-Math-7B-Instruct 的 TIR 模式（实际采用：本地 Qwen3-8B；候选 Qwen3-30B-A3B-Instruct-2507 经评估后拒绝，见 `plans/M3.md`）。
 - 对训练池每题采样 2 条完整多轮轨迹（教师被 prompt 成与我们完全一致的工具调用格式，工具由我们的沙箱真实执行）。
 - **Rejection sampling 过滤**：只保留 (a) 最终答案 verifier 判对，且 (b) 至少一次成功的工具调用，且 (c) 未触发 max_turns 截断的轨迹。目标 1.5k–2.5k 条。
 
 ### 7.2 训练
 
-LoRA（r=32, alpha=64）SFT，1–2 epoch，5090 上即可完成（3B）。工具返回 token 同样不计 loss。产出 SFT checkpoint 作为所有 RL 实验的统一起点。
+LoRA（r=32, alpha=64）SFT，1–2 epoch，单卡即可完成（1.7B）。工具返回 token 同样不计 loss。产出 SFT checkpoint 作为所有 RL 实验的统一起点。
 
 **验收标准**：SFT 后模型在训练池 held-out 200 题上：工具调用格式成功率 > 90%，pass@1 显著高于零样本；两项数字记录在案（它们是面试素材）。
 
@@ -248,10 +252,10 @@ LoRA（r=32, alpha=64）SFT，1–2 epoch，5090 上即可完成（3B）。工�
 
 | 问题 | 回答要点 | 项目内证据 | 覆盖？ |
 |---|---|---|---|
-| 为什么要 SFT 冷启动？直接 RL 不行吗？ | 3B 模型零样本工具格式成功率低 → 组内全错 → GRPO 无梯度、训练空转。我记录了 SFT 前后格式成功率对比 | 7.2 的验收数字；（可选）一组无 SFT 直接 RL 的短对照 run | ✅ |
+| 为什么要 SFT 冷启动？直接 RL 不行吗？ | 1.7B 模型零样本工具格式成功率低 → 组内全错 → GRPO 无梯度、训练空转。我记录了 SFT 前后格式成功率对比 | 7.2 的验收数字；（可选）一组无 SFT 直接 RL 的短对照 run | ✅ |
 | 蒸馏数据怎么过滤？为什么？ | rejection sampling 三条件；保留错误轨迹会把教师的失败模式蒸进去 | `gen_trajectories.py` 过滤统计日志 | ✅ |
 | SFT 会不会压熵、限制 RL 探索？ | 会有此效应；所以只做 1–2 epoch 轻量 SFT，且 RL 阶段监控熵曲线（见 M4），R1 论文的 cold start 一节讨论过同一权衡 | RL 训练的 entropy 曲线起点 | ✅（R1 论文细节为知识延伸） |
-| LoRA 做 SFT/RL 够吗？ | 3B 规模 + 任务内分布迁移，LoRA 经验上足够；我在 E3 上跑过 LoRA vs 全参的一次对比（若时间允许），差距在噪声内/有差距则如实报告 | 若做了对比则有曲线；没做则如实说"预算内选择，是已知局限" | ⚠️ 视时间，诚实处理 |
+| LoRA 做 SFT/RL 够吗？ | 1.7B 规模 + 任务内分布迁移，LoRA 经验上足够；我在 E3 上跑过 LoRA vs 全参的一次对比（若时间允许），差距在噪声内/有差距则如实报告 | 若做了对比则有曲线；没做则如实说"预算内选择，是已知局限" | ⚠️ 视时间，诚实处理 |
 
 ---
 
@@ -440,7 +444,7 @@ bootstrap 置信区间；对比图表 + 判读写入 `02_main_results.md`。若�
 
 ## 12. 算力预算与风险降级
 
-### 12.1 预算估计（按 3B + LoRA，144GB 单卡）
+### 12.1 预算估计（按 1.7B + LoRA，144GB 单卡）
 
 | 项 | 估计 |
 |---|---|
@@ -450,17 +454,17 @@ bootstrap 置信区间；对比图表 + 判读写入 `02_main_results.md`。若�
 | E3 主 run（200 step, bs64×n8, resp≤3072） | 1.5–2.5 GPU 日（rollout 占 70%+ 时间；multi-turn 有工具等待，吞吐低于单轮） |
 | E4 / E5 / E6 / (E7) | 各 1–2 GPU 日（E6 只跑 80 step，~0.5 日） |
 | 评测全量 | ~0.5 GPU 日 |
-| **合计** | **约 8–11 GPU 日**，含重跑余量后贴合 3 周单卡日程；7B 复跑仅在提前完成时做 E3/E5 两个 run |
+| **合计** | **约 8–11 GPU 日**，含重跑余量后贴合 3 周单卡日程；4B 复跑仅在提前完成时做 E3/E5 两个 run |
 
 ### 12.2 风险与降级方案
 
 | 风险 | 触发条件 | 降级动作 |
 |---|---|---|
 | veRL multi-turn 在服务器平台（尤其 GH200/aarch64）跑不通 | M0 两天内未通 | 换 NGC 容器重试半天 → 仍不通则改用 x86 云租卡（A100/H100 单卡按小时）跑正式实验，5090 继续承担开发；框架层面备选：改用社区 multi-turn 方案（如 Search-R1 代码基）承载同一实验设计 |
-| E3 训不稳（4 天未达验收） | M4 超期 | 降到 1.5B、max_turns 3、resp 2048 重试；仍不稳则 E3 以"已诊断的不稳定 + 处置记录"形态入报告，E5/E6 在 1.5B 上完成 |
+| E3 训不稳（4 天未达验收） | M4 超期 | 降到 Qwen3-0.6B、max_turns 3、resp 2048 重试；仍不稳则 E3 以"已诊断的不稳定 + 处置记录"形态入报告，E5/E6 在 0.6B 上完成 |
 | 时间不够 | 第 15 天 E4 未启动 | 砍 E7 → 砍 E4 → **E5 与 E6 永不砍**（它们是差异化核心） |
 | E5 无收益 | 结果层面 | 不是风险——按 §10.2 写成否定性结论 |
-| 蒸馏教师 API 不可用 | M3 | 本地量化 72B 或 Qwen2.5-Math-7B TIR 兜底 |
+| 蒸馏教师 API 不可用 | M3 | 本地量化 72B 或 Qwen2.5-Math-7B TIR 兜底（实际采用：本地 Qwen3-8B；候选 Qwen3-30B-A3B-Instruct-2507 经评估后拒绝）|
 
 ---
 
@@ -486,7 +490,7 @@ bootstrap 置信区间；对比图表 + 判读写入 `02_main_results.md`。若�
 ## 14. 简历 bullet 模板（项目完成后按实际数字填充）
 
 > **多轮工具调用 RL 的信用分配研究（个人项目，代码开源）** 2026.08
-> - 基于 veRL 构建"数学推理 + Python 解释器"多轮工具调用 GRPO 训练管线（Qwen2.5-3B，SGLang 多轮 rollout + 沙箱执行），SFT 冷启动后 RL 使 MATH500 pass@1 提升 x.x pt；
+> - 基于 veRL 构建"数学推理 + Python 解释器"多轮工具调用 GRPO 训练管线（Qwen3-1.7B，SGLang 多轮 rollout + 沙箱执行），SFT 冷启动后 RL 使 MATH500 pass@1 提升 x.x pt；
 > - 系统对比轨迹级优势广播与自研轮级信用分配方案，[量化结论一句话]；设计"错误恢复率"指标度量 agent 失败恢复能力；
 > - 通过对照实验演示工具 token loss masking 缺失导致的训练崩溃机制；收集并修复 x 类 reward hacking 案例，完成 badcase 归因与 verifier 加固；
 > - 完整实验报告与复现脚本开源：github.com/Cirrick/toolcredit。

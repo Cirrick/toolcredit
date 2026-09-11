@@ -16,10 +16,12 @@
 | M2 | 沙箱 / verifier / masking 测试 | ✅ 2026-07-14 | reward 通路三地基全绿（56 tests）：沙箱含真禁网（unshare netns）；verifier 200 例审计的数学等价判定假阳性/语义假阴性均 0 检出，严格 boxed 口径另有 4/200 格式漏分；顺带修复 M1 判分 2 处假阴性；verl mask 构建验证无误 |
 | M3 | SFT 冷启动 | ✅ 2026-07-14 | Qwen3-8B 本地蒸馏 10.4k 轨迹→拒绝采样 6k→LoRA SFT：工具报错率 34%→19%、弃用率 27%→7%、格式 93%；增益 −0.101→−0.032（L5 转正、L4 平价），剩余缺口=数学能力+教师未覆盖难题=RL 的活；SFT-6k 定为全部 RL 实验统一起点 |
 | M4 | E3 GRPO baseline | ✅ 2026-08-20 | 标准轨迹级 GRPO 200 step 训稳：固定 MATH500-100 pass@1 **0.60→0.76**（峰值 0.77），KL/entropy/长度健康，工具错误、格式无效与截断均下降；建立 E5/E6 的可复现基准 |
-| M5 | E6 no-mask / E4 shaping / E7 filtering | 🚧 阶段验收 2026-08-22 | E6 与两条 E4 正式 run 已完成：no-mask 确实让 4.662% loss token 来自环境返回，但 80 step 内未出现灾难性退化；exec shaping 增加调用和 hacking candidates，budget penalty 只小幅缓解，三条 recipe 的 final pass@1 为 E3/A/B=`0.76/0.77/0.76`，无稳定最终能力收益。E7 设计审查已完成，用户主动 defer 到 M6/E5 完成之后；不是实现失败或取消，M5 不 tag |
+| M5 | E6 no-mask / E4 shaping / E7 filtering | 🚧 阶段验收 2026-08-22 | E6 与两条 E4 正式 run 已完成：no-mask 确实让 4.662% loss token 来自环境返回，但 80 step 内未出现灾难性退化；exec shaping 增加调用和 hacking candidates，budget penalty 只小幅缓解，三条 recipe 的 final pass@1 为 E3/A/B=`0.76/0.77/0.76`，无稳定最终能力收益。E7 设计审查已完成，用户主动 defer 到 M6/E5 完成之后；不是实现失败或取消，M5 不 tag（**E7 已于 M10 实现并完成，见 §13**） |
 | M6 | E5 轮级信用分配 | ✅ 2026-08-24 | M6 fixed-100显示early AUC +3pt但final同为.76；mechanism ledger证明correction生效，同时训练4-call由2.71%升至44.05%，结论为早期更快、终点无增益、明显over-calling |
 | M8 | E5-v2 守恒轮级信用 | ✅ 2026-09-05 | 把 v1 修正项改为轨迹内 token 加权零和并门控零方差组：over-calling 完全消失（4-call 92.9%→0.8%、截断 100%→8.7%），FULL760 greedy .741 vs E3 .733（Δ +0.79pt，CI [−1.84,+3.42]），早期 AUC +1.87pt < 2pt → 预注册情形 A；证实 v1 失效源于非守恒隐式奖励，守恒再分配在 ≤4 轮 horizon 与 4–10% exposure 下未检出增益 |
 | M7 | 统一评测 / 分析 / 报告 | ✅ 2026-08-25 | canonical raw/scored 15,200/15,200且全门禁通过；FULL760 greedy raw/SFT/E3/E5=.561/.605/.733/.722。E3最强；E5无final收益但4-call达92.9%（sampled 97.2%），M6的over-calling/no-endpoint-gain跨source泛化，early-speed不能由endpoint-only M7验证 |
+| M9 | E3-NoTool 工具因果对照 | ✅ 2026-09-07 | 同起点/同数据/同配方/同 200 步、**只去掉工具**（config diff 恰好 5 路径，零框架改动）：greedy FULL760 E3 .733 vs E3-NoTool .724，Δ **−0.92pt** CI [−3.55,+1.71] → 预注册**情形 B**。把 SFT→E3 的 +12.76pt 精确拆成 6.05（不再被工具拖累）+ 4.74（推理提升，CI 不跨 0）+ 1.97（工具边际价值，CI 跨 0）；工具增益随阶段单调收窄 −13.95→−6.05→−1.97pt，优势只剩 MATH L4/L5。训练侧零方差组 44.6%→56.3% → M10 动机。详见 §12 |
+| M10 | E7 DAPO 式零方差过滤 | ✅ 2026-09-10 | 只加动态采样（丢 `std(score)=0` 的组、同 snapshot 整批补采样、最多 4 批），E3→E7 config diff 精确 7 路径。**双 x 轴判读**：Δ_step（fixed-100 AUC）+1.44pt CI [−1.06,+4.13]、Δ_compute（等算力 step-95）−0.39pt CI [−2.89,+2.11] → 预注册**情形 C**，**每单位 rollout 算力无免费午餐**；附报 2.53× rollout 的 step-200 终点 +5.13pt [+2.63,+7.63]（缺 E3 同预算臂，不归因于过滤）。独立发现：过滤成本随策略变准单调上升（零方差 34.5%→61.4%、每步批数 2.0→3.06）。详见 §13 |
 
 ---
 
@@ -789,16 +791,31 @@ case inventory分别见`reports/02_main_results.md`、`reports/03_badcase_taxono
 
 **当前**：M10 / E7（DAPO 式零方差过滤）已完成训练、协议 v6 评测与预注册判读（情形 C），见 §13；M9（情形 B，§12）、
 M8（情形 A，§11）与 M7 canonical 保持完成状态。
-M5的E6、E4-A、E4-B保持阶段验收；E7仍是主动deferred，未实现、未失败、未取消。
+M5的E6、E4-A、E4-B保持阶段验收；**E7 的 deferred 状态已于 M10 解除**（2026-09-09 专项批准 exact boundary，2026-09-10 完成，见 §13），
+本节此前"E7仍是主动deferred"的表述作废。
 
-**下一步**：M8 在 tag `m8` 边界结束。没有获批的新实验队列；E7、extra seed、Tier B、β tuning、`|A_traj|` 缩放变体
-（`plans/M8.md` §3.4）与 post-hoc run 仍禁止，任何后续实验需要新计划与新授权。
+**下一步**：项目在 tag `m10` 边界结束，PLAN 原定的 M0–M7 已全部完成，M8–M10 为加做。没有获批的新实验队列；
+extra seed、Tier B、β sweep、`|A_traj|` 缩放变体（`plans/M8.md` §3.4）、过滤降本变体、CoT-SFT 对称起点与 post-hoc run
+仍禁止，任何后续实验需要新计划与新授权。
+
+**唯一已登记的待办实验（2026-09-11 用户指示"暂不执行"，等点名）**：**E3 同预算对照臂**。§13 的 +5.13pt 是在 2.53× rollout 下取得的，
+缺"E3 也花 259,072 条轨迹会到哪"这一条臂，因此只能写成"算力换终点"，不能归因于过滤本身——这是全项目当前最大的单点缺口。
+方案与前置条件见 `HANDOFF.md`"下一步"第 6 条（首选从 E3 step-200 续训 306 步，约 14–16 h；resume 所需的
+optimizer/dataloader 状态已核实完整）。
+
+**存储**：2026-09-11 按用户授权删除 E7 run 的 7 个轮换残留 checkpoint（153.4 GB），保留 `global_step_200` 与
+`equal_compute_step_95` 两个已物化来源；记录见 `rl/runs/e7_dynamic_filtering_20260909_200152/checkpoint_cleanup.json`，
+删除后 formal gate 重跑仍 `status=completed`。
 
 **风险登记簿**（活跃项）：
 - M7 blind audit对E5 coarse labels agreement低，后续引用必须保留“不解释E5 category migration”边界；
 - M7是单seed endpoint评测，不能把M6 fixed-panel early AUC外推成full-panel learning-curve结论；
 - E5 over-calling是未来step-signal设计的核心风险，但任何修正都必须新version、新计划、新对照，不回写结果；
-- E7与pin veRL `fit()`强耦合，未来如恢复仍需exact-boundary专项批准；
+- E7 与 pin veRL `fit()` 强耦合（409 行复制 + 8 处白名单），**任何 veRL 升级都会使 `rl/custom/dynamic_filter_trainer.py` 失效**，
+  届时须按新 pin 源码重做 exact-boundary 专项批准；M10 已完成不改变这一约束；
+- M10 的 +5.13pt 缺 E3 同预算臂，引用时必须带"算力换终点、未归因于过滤"的边界（见上"待办实验"）；
+- E7 训练侧存在未修复的匿名内存泄漏（`ray::WorkerDict` 0.52 GiB/有效 step，占 93.4%），按 M10 计划只诊断不修；
+  任何 200 步以上的新 run 都要沿用分段恢复 + memwatch，否则会在 step 138–172 撞 128 GiB 组级 OOM；
 - 5090本地链路待用户复跑smoke test（不阻塞服务器侧M7 review）。
 
 ## 11. M8 — E5-v2：守恒的轮级信用分配（完成：2026-09-05）

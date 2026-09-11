@@ -2,6 +2,16 @@
 
 ## 当前状态
 
+- **2026-09-11：M10 收尾裁定执行完毕。** 用户授权删除 E7 run 的 7 个轮换残留 checkpoint（`global_step_{25,50,75,100,125,150,175}`，
+  各约 21.9 GB，合计 153.4 GB），保留 `global_step_200` 与 `equal_compute_step_95`（M10 评测物化的两个来源）。
+  checkpoints 目录 185 GiB → **41 GiB**，挂载可用 3.7 TiB → 3.9 TiB。删除前把 7 份 per-checkpoint ledger 复制到
+  `analysis/deleted_checkpoint_ledgers/`；记录写 `rl/runs/e7_dynamic_filtering_20260909_200152/checkpoint_cleanup.json`
+  （schema `toolcredit_raw_checkpoint_cleanup_v1`，含逐步字节数、写入时间、fixed-100 准确率）。
+  删除后重跑 `python -m rl.validate_e7_run formal`，`status=completed` 仍成立，结果存
+  `analysis/formal_completion_gate_post_cleanup.json`；该次重跑会就地改写 `analysis/formal_completion_gate.json`，
+  已按重跑前副本恢复验收时原件（两份只差 `checkpoints.checkpoint_steps`）。**未做任何新训练/评测/判读改动。**
+  用户同时指示：**E3 同预算对照臂暂不执行**，转为长期待办，见"下一步"第 6 条。
+
 - **2026-09-10（晚）：M10 / E7 全部完成（步骤 0–6），预注册判读情形 C，tag `m10`。** 评测 `eval/runs/m10_e7_eval_20260910_140124`
   （协议 v6，manifest `26d89b19…ccc63` 138 文件；7,600/7,600，exact-key digest `6be60168…3d73`；49 产物 `hashes.sha256` `10cd3e26…e0a5`；
   复用 M7 157 + M8 30 + M9 93 个 canonical 产物三次重验）。物化 `eval/checkpoints/m10_e7_{dynamic_filter_step_200,equal_compute}_hf`
@@ -217,7 +227,12 @@
 2. E7、Tier B、额外seed、β sweep、post-hoc tuning、新训练和继续提高诊断预算仍禁止。
 3. 若用户未来选择恢复E7，先重新review `plans/M5_E7_IMPLEMENTATION_REVIEW.md` 的pin源码、exact boundary、
    compute/storage和专项授权；M6完成不自动批准E7。
-4. 保持E3/E4/E5/E6正式产物、M6 freeze与recovery archives不变；不删除checkpoint腾空间。
+4. 保持E3/E4/E5/E6正式产物、M6 freeze与recovery archives不变；~~不删除checkpoint腾空间~~
+   **（2026-09-11 更新：该条写于 M7 期，此后用户已多次逐条授权删除已物化或纯残留的 raw checkpoint——E4-A/E4-B/E6、
+   M9 三个轮换残留、offload-check、E7 resume-check、2026-09-11 的 E7 七个轮换残留。现行口径是：**只删有 cleanup 记录、
+   无 HF 物化引用、无 freeze closure 引用、且 run 已 completed 的 checkpoint，每次删除前须用户点名授权并落
+   `checkpoint_cleanup.json`**。已物化来源与 tracker 指向的 checkpoint 一律保留；特别地，
+   `rl/runs/e3_grpo_baseline_20260819_224555/checkpoints/global_step_200` 是第 6 条同预算臂的 resume 起点，**不得删除**。）**
 5. **【2026-09-09 已执行，结果见"当前状态"首条：GPU/数值通过，CPU 泄漏斜率未消除，建议关 offload + 保留分段恢复】待办（用户 2026-09-07 指定，M9 全部跑完后执行）：验证"关掉 offload"。** 背景见 `reports/qa_log.md` Q17 与
    `plans/M9.md` §11（2026-09-07 行）：所有 200-step formal run 都因容器 `memory.max`=128 GiB + `memory.oom.group=1`
    在 step 138–172 被整 pod 杀死；CPU 内存主要来自 veRL FSDP offload 的 pinned 池（actor worker 内约 45 GB 的
@@ -228,6 +243,25 @@
    日志抛异常，不像 CPU 组级 OOM 无声消失）；(c) `scripts/m9/memwatch.sh` 记录的 cgroup 曲线变平；(d) 单步时间对比。
    通过后它成为 resolved config 相对 E3 的三条新 diff：加进 M10+ 的 diff gate 允许集合，并在对应计划 §11 记为
    "纯基础设施差异、不影响数值"。**M9 这条 run 不改**。备选：200 步在 step 100 计划性分段，用现有 resume 机制续跑。
+
+6. **【待办，用户 2026-09-11 明确"暂时不做，下次做的时候再说"——未授权启动，等用户点名】E3 同预算（equal-budget）对照臂。**
+   **为什么需要**：M10 判读是情形 C（等 step、等算力两轴都持平），但附报里 E7 step-200 比 E3 高 **+5.13pt [+2.63, +7.63]**。
+   这条增益目前**无法归因**：E7 在 200 有效 step 里烧掉 259,072 条轨迹（E3 的 2.53×），而 E3 只跑了 102,400 条就停在 step 200。
+   缺的是"E3 也花 259,072 条轨迹会到哪"。没有它，+5.13pt 只能写成"多花算力换终点"，不能写成"过滤更强"；
+   这是 M10 唯一的科学缺口，也是 `reports/02_main_results.md` M10 节与 technical report §13 明确声明的限制。
+   **怎么做**（两个方案，二选一，执行前需新计划 + 新授权）：
+   - (a) **首选，续训 E3**：从 `rl/runs/e3_grpo_baseline_20260819_224555/checkpoints/global_step_200` 继续跑到累计 259,072 条轨迹，
+     即再 **306 步**（64 prompt × 8 rollout = 512 条/步，(259072−102400)/512 = 306）。按 E3 单步 161 s 估 **约 14 h**；
+     加关 offload 后的观测斜率（gen 稍慢）宜按 15–16 h 预留，并沿用 M10 的分段恢复（`--stop-at-step`）与 memwatch。
+     **resume 前提已于 2026-09-11 核实**：该 checkpoint 完整在盘（21 GB），`actor/{model,optim,extra_state}_world_size_1_rank_0.pt`
+     + `actor/fsdp_config.json` + `actor/huggingface/` + 根目录 `data.pt`（dataloader 状态）齐全，tracker = 200，
+     即优化器与数据顺序状态足以真正续训，不必退化为从 step-200 权重冷启动。
+   - (b) **退化方案，E7 侧截断多点比较**：在 E7 已有 ledger 上按 E3 预算的整数倍取多个累计轨迹点比较，不新训练。
+     便宜但只动 E7 一条曲线，回答不了"E3 多花算力会怎样"，只能作旁证。
+   **前置条件**：(i) `global_step_200` 与 `equal_compute_step_95` 两个 E7 checkpoint 必须还在（2026-09-11 清理已明确保留）；
+   (ii) E3 原 run 的 step-200 checkpoint 必须还在，**清理磁盘时不得删**；(iii) 评测要沿用协议 v6 的 FULL760 口径，
+   新臂作为新 role 接进去，不得改动已冻结的 13 个语义字段；(iv) 判读措辞在计划里预注册，不得看到结果再定。
+   **预算**：训练约 14–16 h + 一个 role 的评测（M10 单 role 约 4–5 h，视 pod CPU 争用）+ 一个 21.9 GB checkpoint。
 
 ## M7 复现与证据指针
 
