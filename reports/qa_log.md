@@ -741,3 +741,17 @@ E7 formal 全程用 memwatch v2（60 s 一次，按进程读 `/proc/<pid>/smaps_
 - clip-higher：A>0 时 ratio 上限 `1+ε_high`，低概率 token 的绝对上调空间 ∝ π_old，对称 0.2 下低概率 token 几乎涨不动 ⇒ 熵坍缩；ε_high 0.28、ε_low 保持 0.2。本项目是所有臂共享配置，未做消融。
 
 **证据**：`rl/custom/turn_advantage.py:compute_turn_credit_data`、`rl/custom/turn_advantage_v2.py:conserved_turn_corrections`、`rl/custom/dynamic_filter_trainer.py:_group_is_zero_std`、`rl/configs/e3_grpo_baseline.yaml`；本文件 Q12/Q22/Q27；`reports/docs/interview_prep_pony_20261022.md`。
+
+## Q29（2026-11-05，小红书 agent 算法面试准备）：准备该基于 technical report、PLAN.md 还是别的文件？
+
+**场景与问题**：投递版简历为"60.5%→73.3%（FULL760）+ 相同训练步数下进一步提升至 78.4%"版本，问复习材料怎么选。
+
+**浓缩答案**：
+
+- 主干用 `reports/docs/interview_prep_pony_20261022.md`：其 §1.5 逐句对应的正是投递版简历；只需把 §7（自动驾驶迁移）换成 agent/内容场景迁移。
+- 二级深挖用本文件 Q12/Q14/Q21/Q22/Q27/Q28；`technical_report.md` 只作查数字与证据的索引，不通读；`PLAN.md` 只看 §13（项目未覆盖的知识题清单）与实验矩阵的设计动机——其余是计划不是结果。
+- `resume_bullets_autumn.md` 的"当前三条版"是 MATH500 59.4%→76.6% 版本，与投递版不同，口径别混。
+- 投递版两处高风险措辞：(1)"进一步提升至 78.4%"——E7 是在标准 GRPO 上单独做的消融，未与轮级信用叠加；相同步数下花了 2.53× rollout，等算力 −0.39pt 持平；(2)"显著降低重复调用…"对比的是 v1，相对标准 GRPO 仅小幅下降。两处都应在自我介绍中主动说明。
+- 项目未覆盖、agent 岗高概率问：相关工作对比（GiGPO、ReTool/ToRL、Search-R1 等，PLAN §13 已列）、无 verifier 场景的 reward 设计（RM/LLM-judge 的 hacking 风险，可接 E4/E5 经验）、长 horizon agent 的上下文管理与 async rollout。
+
+**证据**：`reports/docs/interview_prep_pony_20261022.md` §1.5/§6；`reports/resume_bullets_autumn.md`"数字来源与面试口径"第六条；`PLAN.md` §13；本文件 Q27。
