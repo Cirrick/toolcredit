@@ -727,3 +727,17 @@ E7 formal 全程用 memwatch v2（60 s 一次，按进程读 `/proc/<pid>/smaps_
 
 **证据**：`eval/runs/m10_e7_eval_20260910_140124/metrics/{m10_headline,compute_axes}.json`、`transitions/e3_grpo_baseline_step_200__to__e7_{equal_compute,dynamic_filter_step_200}.bootstrap.json`；
 `rl/runs/e7_dynamic_filtering_20260909_200152/e7_ledger.jsonl`；`plans/M10.md` §2/§9/§13；`reports/02_main_results.md` M10 节；本文件 Q22。
+
+## Q28（2026-10-23，面试复习）：用公式解释标准 GRPO 的问题、轮级修正 v1→v2、DAPO 动态采样与 clip-higher
+
+**场景与问题**：小马智行面试前复习，要求用公式串起"标准 GRPO → 为什么有问题 → 怎么修 → 为什么这么修 → DAPO → clip-higher"。
+
+**浓缩答案**：
+
+- 标准 GRPO：`Â_i=(r_i−mean r)/std r` 广播到轨迹所有 policy token；token-mean 聚合的 PPO-clip + k3 KL。多轮下两个问题：(1) 广播使报错调用与关键调用同号同值；(2) 组内零方差 ⇒ `Â≡0`，rollout 白采且在 token-mean 分母里稀释梯度。
+- v1：`A_{i,t}=Â_i+β(s_{i,t}−s̄_{g,k})`，`s̄` 取同组同轮位置均值（含 final/no-tool turn，s=0）。逐轨迹 `Σ_t n_t c_t ≠ 0` ⇒ 等价于隐式加了"多调用"的奖励：no-tool turn 被罚（33,663 次负修正）、净修正随调用数单调（step 200：0/1/2/3/4 次调用 −0.41/−0.47/−0.23/−0.05/+0.01）、零方差组里 `Â=0` 时修正是唯一 policy-gradient 来源（零方差比例 25%→48%）。
+- v2：`c_t=β(s_t−s̃)`，`s̃=Σ n_t s_t/Σ n_t` 取轨迹内合格 turn（恰一次成功解析调用）的 token 加权均值 ⇒ `Σ n_t c_t=0`，轨迹总 advantage 质量与 E3 相同；<2 个合格 turn 或 `std(score)=0` 的组不修正；AST 归一化后重复代码与 `\boxed{` 之后的调用 `s_t=0`。守恒 ≠ 梯度或最优策略不变；三处同时改，不单独归因。
+- DAPO 动态采样：只保留 `std(score)>0` 的组（按含格式分的 score，而非 accuracy），用同一 snapshot 补采样到 64 组（≤4 批），保持 on-policy；代价 2.53× rollout。
+- clip-higher：A>0 时 ratio 上限 `1+ε_high`，低概率 token 的绝对上调空间 ∝ π_old，对称 0.2 下低概率 token 几乎涨不动 ⇒ 熵坍缩；ε_high 0.28、ε_low 保持 0.2。本项目是所有臂共享配置，未做消融。
+
+**证据**：`rl/custom/turn_advantage.py:compute_turn_credit_data`、`rl/custom/turn_advantage_v2.py:conserved_turn_corrections`、`rl/custom/dynamic_filter_trainer.py:_group_is_zero_std`、`rl/configs/e3_grpo_baseline.yaml`；本文件 Q12/Q22/Q27；`reports/docs/interview_prep_pony_20261022.md`。

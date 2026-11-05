@@ -1,0 +1,2235 @@
+{
+  "note": "descriptive, selection-biased; tool-use is policy-chosen, strata are not comparable populations",
+  "roles": {
+    "raw_base_model": {
+      "greedy": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 34,
+            "correct": 4,
+            "accuracy": 0.1176
+          },
+          "any_tool": {
+            "n": 26,
+            "correct": 2,
+            "accuracy": 0.0769
+          },
+          "tool_all_success": {
+            "n": 20,
+            "correct": 2,
+            "accuracy": 0.1
+          },
+          "tool_any_error": {
+            "n": 6,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 38,
+            "correct": 2,
+            "accuracy": 0.0526
+          },
+          "any_tool": {
+            "n": 22,
+            "correct": 4,
+            "accuracy": 0.1818
+          },
+          "tool_all_success": {
+            "n": 10,
+            "correct": 2,
+            "accuracy": 0.2
+          },
+          "tool_any_error": {
+            "n": 12,
+            "correct": 2,
+            "accuracy": 0.1667
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 299,
+            "correct": 164,
+            "accuracy": 0.5485
+          },
+          "any_tool": {
+            "n": 461,
+            "correct": 262,
+            "accuracy": 0.5683
+          },
+          "tool_all_success": {
+            "n": 365,
+            "correct": 242,
+            "accuracy": 0.663
+          },
+          "tool_any_error": {
+            "n": 96,
+            "correct": 20,
+            "accuracy": 0.2083
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 128,
+            "correct": 98,
+            "accuracy": 0.7656
+          },
+          "any_tool": {
+            "n": 272,
+            "correct": 166,
+            "accuracy": 0.6103
+          },
+          "tool_all_success": {
+            "n": 262,
+            "correct": 164,
+            "accuracy": 0.626
+          },
+          "tool_any_error": {
+            "n": 10,
+            "correct": 2,
+            "accuracy": 0.2
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 199,
+            "correct": 112,
+            "accuracy": 0.5628
+          },
+          "any_tool": {
+            "n": 301,
+            "correct": 176,
+            "accuracy": 0.5847
+          },
+          "tool_all_success": {
+            "n": 219,
+            "correct": 158,
+            "accuracy": 0.7215
+          },
+          "tool_any_error": {
+            "n": 82,
+            "correct": 18,
+            "accuracy": 0.2195
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 19,
+            "correct": 17,
+            "accuracy": 0.8947
+          },
+          "any_tool": {
+            "n": 24,
+            "correct": 19,
+            "accuracy": 0.7917
+          },
+          "tool_all_success": {
+            "n": 20,
+            "correct": 17,
+            "accuracy": 0.85
+          },
+          "tool_any_error": {
+            "n": 4,
+            "correct": 2,
+            "accuracy": 0.5
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 32,
+            "correct": 25,
+            "accuracy": 0.7812
+          },
+          "any_tool": {
+            "n": 58,
+            "correct": 41,
+            "accuracy": 0.7069
+          },
+          "tool_all_success": {
+            "n": 41,
+            "correct": 36,
+            "accuracy": 0.878
+          },
+          "tool_any_error": {
+            "n": 17,
+            "correct": 5,
+            "accuracy": 0.2941
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 40,
+            "correct": 27,
+            "accuracy": 0.675
+          },
+          "any_tool": {
+            "n": 65,
+            "correct": 42,
+            "accuracy": 0.6462
+          },
+          "tool_all_success": {
+            "n": 47,
+            "correct": 38,
+            "accuracy": 0.8085
+          },
+          "tool_any_error": {
+            "n": 18,
+            "correct": 4,
+            "accuracy": 0.2222
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 48,
+            "correct": 28,
+            "accuracy": 0.5833
+          },
+          "any_tool": {
+            "n": 80,
+            "correct": 47,
+            "accuracy": 0.5875
+          },
+          "tool_all_success": {
+            "n": 57,
+            "correct": 42,
+            "accuracy": 0.7368
+          },
+          "tool_any_error": {
+            "n": 23,
+            "correct": 5,
+            "accuracy": 0.2174
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 60,
+            "correct": 15,
+            "accuracy": 0.25
+          },
+          "any_tool": {
+            "n": 74,
+            "correct": 27,
+            "accuracy": 0.3649
+          },
+          "tool_all_success": {
+            "n": 54,
+            "correct": 25,
+            "accuracy": 0.463
+          },
+          "tool_any_error": {
+            "n": 20,
+            "correct": 2,
+            "accuracy": 0.1
+          }
+        }
+      },
+      "sampled": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 92,
+            "correct": 4,
+            "accuracy": 0.0435
+          },
+          "any_tool": {
+            "n": 148,
+            "correct": 16,
+            "accuracy": 0.1081
+          },
+          "tool_all_success": {
+            "n": 84,
+            "correct": 12,
+            "accuracy": 0.1429
+          },
+          "tool_any_error": {
+            "n": 64,
+            "correct": 4,
+            "accuracy": 0.0625
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 142,
+            "correct": 12,
+            "accuracy": 0.0845
+          },
+          "any_tool": {
+            "n": 98,
+            "correct": 6,
+            "accuracy": 0.0612
+          },
+          "tool_all_success": {
+            "n": 56,
+            "correct": 6,
+            "accuracy": 0.1071
+          },
+          "tool_any_error": {
+            "n": 42,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 1117,
+            "correct": 624,
+            "accuracy": 0.5586
+          },
+          "any_tool": {
+            "n": 1923,
+            "correct": 1099,
+            "accuracy": 0.5715
+          },
+          "tool_all_success": {
+            "n": 1508,
+            "correct": 993,
+            "accuracy": 0.6585
+          },
+          "tool_any_error": {
+            "n": 415,
+            "correct": 106,
+            "accuracy": 0.2554
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 460,
+            "correct": 350,
+            "accuracy": 0.7609
+          },
+          "any_tool": {
+            "n": 1140,
+            "correct": 760,
+            "accuracy": 0.6667
+          },
+          "tool_all_success": {
+            "n": 1098,
+            "correct": 740,
+            "accuracy": 0.674
+          },
+          "tool_any_error": {
+            "n": 42,
+            "correct": 20,
+            "accuracy": 0.4762
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 770,
+            "correct": 441,
+            "accuracy": 0.5727
+          },
+          "any_tool": {
+            "n": 1230,
+            "correct": 708,
+            "accuracy": 0.5756
+          },
+          "tool_all_success": {
+            "n": 889,
+            "correct": 614,
+            "accuracy": 0.6907
+          },
+          "tool_any_error": {
+            "n": 341,
+            "correct": 94,
+            "accuracy": 0.2757
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 61,
+            "correct": 52,
+            "accuracy": 0.8525
+          },
+          "any_tool": {
+            "n": 111,
+            "correct": 94,
+            "accuracy": 0.8468
+          },
+          "tool_all_success": {
+            "n": 96,
+            "correct": 87,
+            "accuracy": 0.9062
+          },
+          "tool_any_error": {
+            "n": 15,
+            "correct": 7,
+            "accuracy": 0.4667
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 119,
+            "correct": 100,
+            "accuracy": 0.8403
+          },
+          "any_tool": {
+            "n": 241,
+            "correct": 180,
+            "accuracy": 0.7469
+          },
+          "tool_all_success": {
+            "n": 186,
+            "correct": 155,
+            "accuracy": 0.8333
+          },
+          "tool_any_error": {
+            "n": 55,
+            "correct": 25,
+            "accuracy": 0.4545
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 167,
+            "correct": 124,
+            "accuracy": 0.7425
+          },
+          "any_tool": {
+            "n": 253,
+            "correct": 163,
+            "accuracy": 0.6443
+          },
+          "tool_all_success": {
+            "n": 180,
+            "correct": 138,
+            "accuracy": 0.7667
+          },
+          "tool_any_error": {
+            "n": 73,
+            "correct": 25,
+            "accuracy": 0.3425
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 189,
+            "correct": 101,
+            "accuracy": 0.5344
+          },
+          "any_tool": {
+            "n": 323,
+            "correct": 166,
+            "accuracy": 0.5139
+          },
+          "tool_all_success": {
+            "n": 224,
+            "correct": 145,
+            "accuracy": 0.6473
+          },
+          "tool_any_error": {
+            "n": 99,
+            "correct": 21,
+            "accuracy": 0.2121
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 234,
+            "correct": 64,
+            "accuracy": 0.2735
+          },
+          "any_tool": {
+            "n": 302,
+            "correct": 105,
+            "accuracy": 0.3477
+          },
+          "tool_all_success": {
+            "n": 203,
+            "correct": 89,
+            "accuracy": 0.4384
+          },
+          "tool_any_error": {
+            "n": 99,
+            "correct": 16,
+            "accuracy": 0.1616
+          }
+        }
+      }
+    },
+    "sft_start": {
+      "greedy": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 12,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 48,
+            "correct": 4,
+            "accuracy": 0.0833
+          },
+          "tool_all_success": {
+            "n": 24,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "tool_any_error": {
+            "n": 24,
+            "correct": 4,
+            "accuracy": 0.1667
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 12,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 48,
+            "correct": 10,
+            "accuracy": 0.2083
+          },
+          "tool_all_success": {
+            "n": 34,
+            "correct": 10,
+            "accuracy": 0.2941
+          },
+          "tool_any_error": {
+            "n": 14,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 67,
+            "correct": 12,
+            "accuracy": 0.1791
+          },
+          "any_tool": {
+            "n": 693,
+            "correct": 448,
+            "accuracy": 0.6465
+          },
+          "tool_all_success": {
+            "n": 593,
+            "correct": 414,
+            "accuracy": 0.6981
+          },
+          "tool_any_error": {
+            "n": 100,
+            "correct": 34,
+            "accuracy": 0.34
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 2,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 398,
+            "correct": 312,
+            "accuracy": 0.7839
+          },
+          "tool_all_success": {
+            "n": 376,
+            "correct": 296,
+            "accuracy": 0.7872
+          },
+          "tool_any_error": {
+            "n": 22,
+            "correct": 16,
+            "accuracy": 0.7273
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 54,
+            "correct": 12,
+            "accuracy": 0.2222
+          },
+          "any_tool": {
+            "n": 446,
+            "correct": 285,
+            "accuracy": 0.639
+          },
+          "tool_all_success": {
+            "n": 376,
+            "correct": 261,
+            "accuracy": 0.6941
+          },
+          "tool_any_error": {
+            "n": 70,
+            "correct": 24,
+            "accuracy": 0.3429
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          },
+          "any_tool": {
+            "n": 43,
+            "correct": 40,
+            "accuracy": 0.9302
+          },
+          "tool_all_success": {
+            "n": 42,
+            "correct": 39,
+            "accuracy": 0.9286
+          },
+          "tool_any_error": {
+            "n": 1,
+            "correct": 1,
+            "accuracy": 1.0
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 5,
+            "correct": 2,
+            "accuracy": 0.4
+          },
+          "any_tool": {
+            "n": 85,
+            "correct": 67,
+            "accuracy": 0.7882
+          },
+          "tool_all_success": {
+            "n": 75,
+            "correct": 61,
+            "accuracy": 0.8133
+          },
+          "tool_any_error": {
+            "n": 10,
+            "correct": 6,
+            "accuracy": 0.6
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 14,
+            "correct": 4,
+            "accuracy": 0.2857
+          },
+          "any_tool": {
+            "n": 91,
+            "correct": 69,
+            "accuracy": 0.7582
+          },
+          "tool_all_success": {
+            "n": 75,
+            "correct": 61,
+            "accuracy": 0.8133
+          },
+          "tool_any_error": {
+            "n": 16,
+            "correct": 8,
+            "accuracy": 0.5
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 16,
+            "correct": 5,
+            "accuracy": 0.3125
+          },
+          "any_tool": {
+            "n": 112,
+            "correct": 67,
+            "accuracy": 0.5982
+          },
+          "tool_all_success": {
+            "n": 96,
+            "correct": 62,
+            "accuracy": 0.6458
+          },
+          "tool_any_error": {
+            "n": 16,
+            "correct": 5,
+            "accuracy": 0.3125
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 19,
+            "correct": 1,
+            "accuracy": 0.0526
+          },
+          "any_tool": {
+            "n": 115,
+            "correct": 42,
+            "accuracy": 0.3652
+          },
+          "tool_all_success": {
+            "n": 88,
+            "correct": 38,
+            "accuracy": 0.4318
+          },
+          "tool_any_error": {
+            "n": 27,
+            "correct": 4,
+            "accuracy": 0.1481
+          }
+        }
+      },
+      "sampled": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 48,
+            "correct": 6,
+            "accuracy": 0.125
+          },
+          "any_tool": {
+            "n": 192,
+            "correct": 16,
+            "accuracy": 0.0833
+          },
+          "tool_all_success": {
+            "n": 118,
+            "correct": 6,
+            "accuracy": 0.0508
+          },
+          "tool_any_error": {
+            "n": 74,
+            "correct": 10,
+            "accuracy": 0.1351
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 42,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 198,
+            "correct": 28,
+            "accuracy": 0.1414
+          },
+          "tool_all_success": {
+            "n": 124,
+            "correct": 24,
+            "accuracy": 0.1935
+          },
+          "tool_any_error": {
+            "n": 74,
+            "correct": 4,
+            "accuracy": 0.0541
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 218,
+            "correct": 63,
+            "accuracy": 0.289
+          },
+          "any_tool": {
+            "n": 2822,
+            "correct": 1804,
+            "accuracy": 0.6393
+          },
+          "tool_all_success": {
+            "n": 2344,
+            "correct": 1646,
+            "accuracy": 0.7022
+          },
+          "tool_any_error": {
+            "n": 478,
+            "correct": 158,
+            "accuracy": 0.3305
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 26,
+            "correct": 12,
+            "accuracy": 0.4615
+          },
+          "any_tool": {
+            "n": 1574,
+            "correct": 1208,
+            "accuracy": 0.7675
+          },
+          "tool_all_success": {
+            "n": 1508,
+            "correct": 1162,
+            "accuracy": 0.7706
+          },
+          "tool_any_error": {
+            "n": 66,
+            "correct": 46,
+            "accuracy": 0.697
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 160,
+            "correct": 54,
+            "accuracy": 0.3375
+          },
+          "any_tool": {
+            "n": 1840,
+            "correct": 1178,
+            "accuracy": 0.6402
+          },
+          "tool_all_success": {
+            "n": 1469,
+            "correct": 1050,
+            "accuracy": 0.7148
+          },
+          "tool_any_error": {
+            "n": 371,
+            "correct": 128,
+            "accuracy": 0.345
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 4,
+            "correct": 4,
+            "accuracy": 1.0
+          },
+          "any_tool": {
+            "n": 168,
+            "correct": 151,
+            "accuracy": 0.8988
+          },
+          "tool_all_success": {
+            "n": 158,
+            "correct": 143,
+            "accuracy": 0.9051
+          },
+          "tool_any_error": {
+            "n": 10,
+            "correct": 8,
+            "accuracy": 0.8
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 21,
+            "correct": 11,
+            "accuracy": 0.5238
+          },
+          "any_tool": {
+            "n": 339,
+            "correct": 272,
+            "accuracy": 0.8024
+          },
+          "tool_all_success": {
+            "n": 283,
+            "correct": 241,
+            "accuracy": 0.8516
+          },
+          "tool_any_error": {
+            "n": 56,
+            "correct": 31,
+            "accuracy": 0.5536
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 35,
+            "correct": 17,
+            "accuracy": 0.4857
+          },
+          "any_tool": {
+            "n": 385,
+            "correct": 285,
+            "accuracy": 0.7403
+          },
+          "tool_all_success": {
+            "n": 315,
+            "correct": 258,
+            "accuracy": 0.819
+          },
+          "tool_any_error": {
+            "n": 70,
+            "correct": 27,
+            "accuracy": 0.3857
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 43,
+            "correct": 13,
+            "accuracy": 0.3023
+          },
+          "any_tool": {
+            "n": 469,
+            "correct": 284,
+            "accuracy": 0.6055
+          },
+          "tool_all_success": {
+            "n": 361,
+            "correct": 249,
+            "accuracy": 0.6898
+          },
+          "tool_any_error": {
+            "n": 108,
+            "correct": 35,
+            "accuracy": 0.3241
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 57,
+            "correct": 9,
+            "accuracy": 0.1579
+          },
+          "any_tool": {
+            "n": 479,
+            "correct": 186,
+            "accuracy": 0.3883
+          },
+          "tool_all_success": {
+            "n": 352,
+            "correct": 159,
+            "accuracy": 0.4517
+          },
+          "tool_any_error": {
+            "n": 127,
+            "correct": 27,
+            "accuracy": 0.2126
+          }
+        }
+      }
+    },
+    "e3_grpo_baseline_step_200": {
+      "greedy": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 24,
+            "correct": 4,
+            "accuracy": 0.1667
+          },
+          "any_tool": {
+            "n": 36,
+            "correct": 4,
+            "accuracy": 0.1111
+          },
+          "tool_all_success": {
+            "n": 26,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "tool_any_error": {
+            "n": 10,
+            "correct": 4,
+            "accuracy": 0.4
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 28,
+            "correct": 2,
+            "accuracy": 0.0714
+          },
+          "any_tool": {
+            "n": 32,
+            "correct": 6,
+            "accuracy": 0.1875
+          },
+          "tool_all_success": {
+            "n": 20,
+            "correct": 6,
+            "accuracy": 0.3
+          },
+          "tool_any_error": {
+            "n": 12,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 202,
+            "correct": 125,
+            "accuracy": 0.6188
+          },
+          "any_tool": {
+            "n": 558,
+            "correct": 432,
+            "accuracy": 0.7742
+          },
+          "tool_all_success": {
+            "n": 509,
+            "correct": 411,
+            "accuracy": 0.8075
+          },
+          "tool_any_error": {
+            "n": 49,
+            "correct": 21,
+            "accuracy": 0.4286
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 136,
+            "correct": 106,
+            "accuracy": 0.7794
+          },
+          "any_tool": {
+            "n": 264,
+            "correct": 226,
+            "accuracy": 0.8561
+          },
+          "tool_all_success": {
+            "n": 260,
+            "correct": 224,
+            "accuracy": 0.8615
+          },
+          "tool_any_error": {
+            "n": 4,
+            "correct": 2,
+            "accuracy": 0.5
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 108,
+            "correct": 69,
+            "accuracy": 0.6389
+          },
+          "any_tool": {
+            "n": 392,
+            "correct": 314,
+            "accuracy": 0.801
+          },
+          "tool_all_success": {
+            "n": 356,
+            "correct": 296,
+            "accuracy": 0.8315
+          },
+          "tool_any_error": {
+            "n": 36,
+            "correct": 18,
+            "accuracy": 0.5
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 6,
+            "correct": 5,
+            "accuracy": 0.8333
+          },
+          "any_tool": {
+            "n": 37,
+            "correct": 36,
+            "accuracy": 0.973
+          },
+          "tool_all_success": {
+            "n": 37,
+            "correct": 36,
+            "accuracy": 0.973
+          },
+          "tool_any_error": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 20,
+            "correct": 18,
+            "accuracy": 0.9
+          },
+          "any_tool": {
+            "n": 70,
+            "correct": 63,
+            "accuracy": 0.9
+          },
+          "tool_all_success": {
+            "n": 66,
+            "correct": 61,
+            "accuracy": 0.9242
+          },
+          "tool_any_error": {
+            "n": 4,
+            "correct": 2,
+            "accuracy": 0.5
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 18,
+            "correct": 15,
+            "accuracy": 0.8333
+          },
+          "any_tool": {
+            "n": 87,
+            "correct": 74,
+            "accuracy": 0.8506
+          },
+          "tool_all_success": {
+            "n": 79,
+            "correct": 68,
+            "accuracy": 0.8608
+          },
+          "tool_any_error": {
+            "n": 8,
+            "correct": 6,
+            "accuracy": 0.75
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 28,
+            "correct": 18,
+            "accuracy": 0.6429
+          },
+          "any_tool": {
+            "n": 100,
+            "correct": 84,
+            "accuracy": 0.84
+          },
+          "tool_all_success": {
+            "n": 94,
+            "correct": 79,
+            "accuracy": 0.8404
+          },
+          "tool_any_error": {
+            "n": 6,
+            "correct": 5,
+            "accuracy": 0.8333
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 36,
+            "correct": 13,
+            "accuracy": 0.3611
+          },
+          "any_tool": {
+            "n": 98,
+            "correct": 57,
+            "accuracy": 0.5816
+          },
+          "tool_all_success": {
+            "n": 80,
+            "correct": 52,
+            "accuracy": 0.65
+          },
+          "tool_any_error": {
+            "n": 18,
+            "correct": 5,
+            "accuracy": 0.2778
+          }
+        }
+      },
+      "sampled": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 72,
+            "correct": 6,
+            "accuracy": 0.0833
+          },
+          "any_tool": {
+            "n": 168,
+            "correct": 44,
+            "accuracy": 0.2619
+          },
+          "tool_all_success": {
+            "n": 130,
+            "correct": 32,
+            "accuracy": 0.2462
+          },
+          "tool_any_error": {
+            "n": 38,
+            "correct": 12,
+            "accuracy": 0.3158
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 52,
+            "correct": 8,
+            "accuracy": 0.1538
+          },
+          "any_tool": {
+            "n": 188,
+            "correct": 46,
+            "accuracy": 0.2447
+          },
+          "tool_all_success": {
+            "n": 126,
+            "correct": 40,
+            "accuracy": 0.3175
+          },
+          "tool_any_error": {
+            "n": 62,
+            "correct": 6,
+            "accuracy": 0.0968
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 652,
+            "correct": 460,
+            "accuracy": 0.7055
+          },
+          "any_tool": {
+            "n": 2388,
+            "correct": 1798,
+            "accuracy": 0.7529
+          },
+          "tool_all_success": {
+            "n": 2154,
+            "correct": 1689,
+            "accuracy": 0.7841
+          },
+          "tool_any_error": {
+            "n": 234,
+            "correct": 109,
+            "accuracy": 0.4658
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 462,
+            "correct": 382,
+            "accuracy": 0.8268
+          },
+          "any_tool": {
+            "n": 1138,
+            "correct": 932,
+            "accuracy": 0.819
+          },
+          "tool_all_success": {
+            "n": 1122,
+            "correct": 918,
+            "accuracy": 0.8182
+          },
+          "tool_any_error": {
+            "n": 16,
+            "correct": 14,
+            "accuracy": 0.875
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 359,
+            "correct": 262,
+            "accuracy": 0.7298
+          },
+          "any_tool": {
+            "n": 1641,
+            "correct": 1287,
+            "accuracy": 0.7843
+          },
+          "tool_all_success": {
+            "n": 1465,
+            "correct": 1194,
+            "accuracy": 0.815
+          },
+          "tool_any_error": {
+            "n": 176,
+            "correct": 93,
+            "accuracy": 0.5284
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 25,
+            "correct": 23,
+            "accuracy": 0.92
+          },
+          "any_tool": {
+            "n": 147,
+            "correct": 144,
+            "accuracy": 0.9796
+          },
+          "tool_all_success": {
+            "n": 143,
+            "correct": 140,
+            "accuracy": 0.979
+          },
+          "tool_any_error": {
+            "n": 4,
+            "correct": 4,
+            "accuracy": 1.0
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 65,
+            "correct": 57,
+            "accuracy": 0.8769
+          },
+          "any_tool": {
+            "n": 295,
+            "correct": 265,
+            "accuracy": 0.8983
+          },
+          "tool_all_success": {
+            "n": 272,
+            "correct": 246,
+            "accuracy": 0.9044
+          },
+          "tool_any_error": {
+            "n": 23,
+            "correct": 19,
+            "accuracy": 0.8261
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 96,
+            "correct": 91,
+            "accuracy": 0.9479
+          },
+          "any_tool": {
+            "n": 324,
+            "correct": 286,
+            "accuracy": 0.8827
+          },
+          "tool_all_success": {
+            "n": 295,
+            "correct": 270,
+            "accuracy": 0.9153
+          },
+          "tool_any_error": {
+            "n": 29,
+            "correct": 16,
+            "accuracy": 0.5517
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 71,
+            "correct": 50,
+            "accuracy": 0.7042
+          },
+          "any_tool": {
+            "n": 441,
+            "correct": 348,
+            "accuracy": 0.7891
+          },
+          "tool_all_success": {
+            "n": 395,
+            "correct": 320,
+            "accuracy": 0.8101
+          },
+          "tool_any_error": {
+            "n": 46,
+            "correct": 28,
+            "accuracy": 0.6087
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 102,
+            "correct": 41,
+            "accuracy": 0.402
+          },
+          "any_tool": {
+            "n": 434,
+            "correct": 244,
+            "accuracy": 0.5622
+          },
+          "tool_all_success": {
+            "n": 360,
+            "correct": 218,
+            "accuracy": 0.6056
+          },
+          "tool_any_error": {
+            "n": 74,
+            "correct": 26,
+            "accuracy": 0.3514
+          }
+        }
+      }
+    },
+    "e5_turn_credit_step_200": {
+      "greedy": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 22,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 38,
+            "correct": 8,
+            "accuracy": 0.2105
+          },
+          "tool_all_success": {
+            "n": 32,
+            "correct": 6,
+            "accuracy": 0.1875
+          },
+          "tool_any_error": {
+            "n": 6,
+            "correct": 2,
+            "accuracy": 0.3333
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 12,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 48,
+            "correct": 10,
+            "accuracy": 0.2083
+          },
+          "tool_all_success": {
+            "n": 44,
+            "correct": 10,
+            "accuracy": 0.2273
+          },
+          "tool_any_error": {
+            "n": 4,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 39,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 721,
+            "correct": 549,
+            "accuracy": 0.7614
+          },
+          "tool_all_success": {
+            "n": 696,
+            "correct": 539,
+            "accuracy": 0.7744
+          },
+          "tool_any_error": {
+            "n": 25,
+            "correct": 10,
+            "accuracy": 0.4
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 4,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 396,
+            "correct": 330,
+            "accuracy": 0.8333
+          },
+          "tool_all_success": {
+            "n": 396,
+            "correct": 330,
+            "accuracy": 0.8333
+          },
+          "tool_any_error": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 20,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 480,
+            "correct": 375,
+            "accuracy": 0.7812
+          },
+          "tool_all_success": {
+            "n": 460,
+            "correct": 366,
+            "accuracy": 0.7957
+          },
+          "tool_any_error": {
+            "n": 20,
+            "correct": 9,
+            "accuracy": 0.45
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          },
+          "any_tool": {
+            "n": 43,
+            "correct": 42,
+            "accuracy": 0.9767
+          },
+          "tool_all_success": {
+            "n": 43,
+            "correct": 42,
+            "accuracy": 0.9767
+          },
+          "tool_any_error": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 89,
+            "correct": 79,
+            "accuracy": 0.8876
+          },
+          "tool_all_success": {
+            "n": 85,
+            "correct": 77,
+            "accuracy": 0.9059
+          },
+          "tool_any_error": {
+            "n": 4,
+            "correct": 2,
+            "accuracy": 0.5
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 4,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 101,
+            "correct": 92,
+            "accuracy": 0.9109
+          },
+          "tool_all_success": {
+            "n": 99,
+            "correct": 90,
+            "accuracy": 0.9091
+          },
+          "tool_any_error": {
+            "n": 2,
+            "correct": 2,
+            "accuracy": 1.0
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 2,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 126,
+            "correct": 99,
+            "accuracy": 0.7857
+          },
+          "tool_all_success": {
+            "n": 119,
+            "correct": 95,
+            "accuracy": 0.7983
+          },
+          "tool_any_error": {
+            "n": 7,
+            "correct": 4,
+            "accuracy": 0.5714
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 13,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 121,
+            "correct": 63,
+            "accuracy": 0.5207
+          },
+          "tool_all_success": {
+            "n": 114,
+            "correct": 62,
+            "accuracy": 0.5439
+          },
+          "tool_any_error": {
+            "n": 7,
+            "correct": 1,
+            "accuracy": 0.1429
+          }
+        }
+      },
+      "sampled": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 12,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 228,
+            "correct": 48,
+            "accuracy": 0.2105
+          },
+          "tool_all_success": {
+            "n": 210,
+            "correct": 40,
+            "accuracy": 0.1905
+          },
+          "tool_any_error": {
+            "n": 18,
+            "correct": 8,
+            "accuracy": 0.4444
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 4,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 236,
+            "correct": 40,
+            "accuracy": 0.1695
+          },
+          "tool_all_success": {
+            "n": 212,
+            "correct": 36,
+            "accuracy": 0.1698
+          },
+          "tool_any_error": {
+            "n": 24,
+            "correct": 4,
+            "accuracy": 0.1667
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 19,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 3021,
+            "correct": 2245,
+            "accuracy": 0.7431
+          },
+          "tool_all_success": {
+            "n": 2876,
+            "correct": 2164,
+            "accuracy": 0.7524
+          },
+          "tool_any_error": {
+            "n": 145,
+            "correct": 81,
+            "accuracy": 0.5586
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          },
+          "any_tool": {
+            "n": 1600,
+            "correct": 1318,
+            "accuracy": 0.8237
+          },
+          "tool_all_success": {
+            "n": 1582,
+            "correct": 1304,
+            "accuracy": 0.8243
+          },
+          "tool_any_error": {
+            "n": 18,
+            "correct": 14,
+            "accuracy": 0.7778
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 11,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 1989,
+            "correct": 1542,
+            "accuracy": 0.7753
+          },
+          "tool_all_success": {
+            "n": 1874,
+            "correct": 1474,
+            "accuracy": 0.7866
+          },
+          "tool_any_error": {
+            "n": 115,
+            "correct": 68,
+            "accuracy": 0.5913
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          },
+          "any_tool": {
+            "n": 172,
+            "correct": 170,
+            "accuracy": 0.9884
+          },
+          "tool_all_success": {
+            "n": 172,
+            "correct": 170,
+            "accuracy": 0.9884
+          },
+          "tool_any_error": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 359,
+            "correct": 320,
+            "accuracy": 0.8914
+          },
+          "tool_all_success": {
+            "n": 348,
+            "correct": 310,
+            "accuracy": 0.8908
+          },
+          "tool_any_error": {
+            "n": 11,
+            "correct": 10,
+            "accuracy": 0.9091
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          },
+          "any_tool": {
+            "n": 420,
+            "correct": 371,
+            "accuracy": 0.8833
+          },
+          "tool_all_success": {
+            "n": 399,
+            "correct": 356,
+            "accuracy": 0.8922
+          },
+          "tool_any_error": {
+            "n": 21,
+            "correct": 15,
+            "accuracy": 0.7143
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 2,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 510,
+            "correct": 402,
+            "accuracy": 0.7882
+          },
+          "tool_all_success": {
+            "n": 481,
+            "correct": 378,
+            "accuracy": 0.7859
+          },
+          "tool_any_error": {
+            "n": 29,
+            "correct": 24,
+            "accuracy": 0.8276
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 8,
+            "correct": 0,
+            "accuracy": 0.0
+          },
+          "any_tool": {
+            "n": 528,
+            "correct": 279,
+            "accuracy": 0.5284
+          },
+          "tool_all_success": {
+            "n": 474,
+            "correct": 260,
+            "accuracy": 0.5485
+          },
+          "tool_any_error": {
+            "n": 54,
+            "correct": 19,
+            "accuracy": 0.3519
+          }
+        }
+      }
+    },
+    "e5v2_conserved_credit_step_200": {
+      "greedy": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 38,
+            "correct": 6,
+            "accuracy": 0.1579
+          },
+          "any_tool": {
+            "n": 22,
+            "correct": 6,
+            "accuracy": 0.2727
+          },
+          "tool_all_success": {
+            "n": 10,
+            "correct": 2,
+            "accuracy": 0.2
+          },
+          "tool_any_error": {
+            "n": 12,
+            "correct": 4,
+            "accuracy": 0.3333
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 36,
+            "correct": 4,
+            "accuracy": 0.1111
+          },
+          "any_tool": {
+            "n": 24,
+            "correct": 8,
+            "accuracy": 0.3333
+          },
+          "tool_all_success": {
+            "n": 18,
+            "correct": 8,
+            "accuracy": 0.4444
+          },
+          "tool_any_error": {
+            "n": 6,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 369,
+            "correct": 248,
+            "accuracy": 0.6721
+          },
+          "any_tool": {
+            "n": 391,
+            "correct": 315,
+            "accuracy": 0.8056
+          },
+          "tool_all_success": {
+            "n": 361,
+            "correct": 301,
+            "accuracy": 0.8338
+          },
+          "tool_any_error": {
+            "n": 30,
+            "correct": 14,
+            "accuracy": 0.4667
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 164,
+            "correct": 126,
+            "accuracy": 0.7683
+          },
+          "any_tool": {
+            "n": 236,
+            "correct": 204,
+            "accuracy": 0.8644
+          },
+          "tool_all_success": {
+            "n": 234,
+            "correct": 202,
+            "accuracy": 0.8632
+          },
+          "tool_any_error": {
+            "n": 2,
+            "correct": 2,
+            "accuracy": 1.0
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 250,
+            "correct": 180,
+            "accuracy": 0.72
+          },
+          "any_tool": {
+            "n": 250,
+            "correct": 206,
+            "accuracy": 0.824
+          },
+          "tool_all_success": {
+            "n": 230,
+            "correct": 195,
+            "accuracy": 0.8478
+          },
+          "tool_any_error": {
+            "n": 20,
+            "correct": 11,
+            "accuracy": 0.55
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 20,
+            "correct": 20,
+            "accuracy": 1.0
+          },
+          "any_tool": {
+            "n": 23,
+            "correct": 23,
+            "accuracy": 1.0
+          },
+          "tool_all_success": {
+            "n": 23,
+            "correct": 23,
+            "accuracy": 1.0
+          },
+          "tool_any_error": {
+            "n": 0,
+            "correct": 0,
+            "accuracy": null
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 44,
+            "correct": 38,
+            "accuracy": 0.8636
+          },
+          "any_tool": {
+            "n": 46,
+            "correct": 41,
+            "accuracy": 0.8913
+          },
+          "tool_all_success": {
+            "n": 44,
+            "correct": 40,
+            "accuracy": 0.9091
+          },
+          "tool_any_error": {
+            "n": 2,
+            "correct": 1,
+            "accuracy": 0.5
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 55,
+            "correct": 46,
+            "accuracy": 0.8364
+          },
+          "any_tool": {
+            "n": 50,
+            "correct": 42,
+            "accuracy": 0.84
+          },
+          "tool_all_success": {
+            "n": 49,
+            "correct": 42,
+            "accuracy": 0.8571
+          },
+          "tool_any_error": {
+            "n": 1,
+            "correct": 0,
+            "accuracy": 0.0
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 56,
+            "correct": 42,
+            "accuracy": 0.75
+          },
+          "any_tool": {
+            "n": 72,
+            "correct": 62,
+            "accuracy": 0.8611
+          },
+          "tool_all_success": {
+            "n": 62,
+            "correct": 54,
+            "accuracy": 0.871
+          },
+          "tool_any_error": {
+            "n": 10,
+            "correct": 8,
+            "accuracy": 0.8
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 75,
+            "correct": 34,
+            "accuracy": 0.4533
+          },
+          "any_tool": {
+            "n": 59,
+            "correct": 38,
+            "accuracy": 0.6441
+          },
+          "tool_all_success": {
+            "n": 52,
+            "correct": 36,
+            "accuracy": 0.6923
+          },
+          "tool_any_error": {
+            "n": 7,
+            "correct": 2,
+            "accuracy": 0.2857
+          }
+        }
+      },
+      "sampled": {
+        "AIME2024": {
+          "no_tool": {
+            "n": 138,
+            "correct": 20,
+            "accuracy": 0.1449
+          },
+          "any_tool": {
+            "n": 102,
+            "correct": 36,
+            "accuracy": 0.3529
+          },
+          "tool_all_success": {
+            "n": 70,
+            "correct": 28,
+            "accuracy": 0.4
+          },
+          "tool_any_error": {
+            "n": 32,
+            "correct": 8,
+            "accuracy": 0.25
+          }
+        },
+        "AIME2025": {
+          "no_tool": {
+            "n": 124,
+            "correct": 10,
+            "accuracy": 0.0806
+          },
+          "any_tool": {
+            "n": 116,
+            "correct": 38,
+            "accuracy": 0.3276
+          },
+          "tool_all_success": {
+            "n": 82,
+            "correct": 34,
+            "accuracy": 0.4146
+          },
+          "tool_any_error": {
+            "n": 34,
+            "correct": 4,
+            "accuracy": 0.1176
+          }
+        },
+        "FULL760": {
+          "no_tool": {
+            "n": 1448,
+            "correct": 1043,
+            "accuracy": 0.7203
+          },
+          "any_tool": {
+            "n": 1592,
+            "correct": 1252,
+            "accuracy": 0.7864
+          },
+          "tool_all_success": {
+            "n": 1466,
+            "correct": 1189,
+            "accuracy": 0.8111
+          },
+          "tool_any_error": {
+            "n": 126,
+            "correct": 63,
+            "accuracy": 0.5
+          }
+        },
+        "GSM8K": {
+          "no_tool": {
+            "n": 624,
+            "correct": 530,
+            "accuracy": 0.8494
+          },
+          "any_tool": {
+            "n": 976,
+            "correct": 826,
+            "accuracy": 0.8463
+          },
+          "tool_all_success": {
+            "n": 970,
+            "correct": 820,
+            "accuracy": 0.8454
+          },
+          "tool_any_error": {
+            "n": 6,
+            "correct": 6,
+            "accuracy": 1.0
+          }
+        },
+        "MATH500": {
+          "no_tool": {
+            "n": 1005,
+            "correct": 763,
+            "accuracy": 0.7592
+          },
+          "any_tool": {
+            "n": 995,
+            "correct": 802,
+            "accuracy": 0.806
+          },
+          "tool_all_success": {
+            "n": 905,
+            "correct": 748,
+            "accuracy": 0.8265
+          },
+          "tool_any_error": {
+            "n": 90,
+            "correct": 54,
+            "accuracy": 0.6
+          }
+        },
+        "MATH500_level_1": {
+          "no_tool": {
+            "n": 76,
+            "correct": 71,
+            "accuracy": 0.9342
+          },
+          "any_tool": {
+            "n": 96,
+            "correct": 95,
+            "accuracy": 0.9896
+          },
+          "tool_all_success": {
+            "n": 93,
+            "correct": 92,
+            "accuracy": 0.9892
+          },
+          "tool_any_error": {
+            "n": 3,
+            "correct": 3,
+            "accuracy": 1.0
+          }
+        },
+        "MATH500_level_2": {
+          "no_tool": {
+            "n": 165,
+            "correct": 141,
+            "accuracy": 0.8545
+          },
+          "any_tool": {
+            "n": 195,
+            "correct": 175,
+            "accuracy": 0.8974
+          },
+          "tool_all_success": {
+            "n": 177,
+            "correct": 159,
+            "accuracy": 0.8983
+          },
+          "tool_any_error": {
+            "n": 18,
+            "correct": 16,
+            "accuracy": 0.8889
+          }
+        },
+        "MATH500_level_3": {
+          "no_tool": {
+            "n": 232,
+            "correct": 207,
+            "accuracy": 0.8922
+          },
+          "any_tool": {
+            "n": 188,
+            "correct": 168,
+            "accuracy": 0.8936
+          },
+          "tool_all_success": {
+            "n": 171,
+            "correct": 158,
+            "accuracy": 0.924
+          },
+          "tool_any_error": {
+            "n": 17,
+            "correct": 10,
+            "accuracy": 0.5882
+          }
+        },
+        "MATH500_level_4": {
+          "no_tool": {
+            "n": 242,
+            "correct": 205,
+            "accuracy": 0.8471
+          },
+          "any_tool": {
+            "n": 270,
+            "correct": 203,
+            "accuracy": 0.7519
+          },
+          "tool_all_success": {
+            "n": 244,
+            "correct": 192,
+            "accuracy": 0.7869
+          },
+          "tool_any_error": {
+            "n": 26,
+            "correct": 11,
+            "accuracy": 0.4231
+          }
+        },
+        "MATH500_level_5": {
+          "no_tool": {
+            "n": 290,
+            "correct": 139,
+            "accuracy": 0.4793
+          },
+          "any_tool": {
+            "n": 246,
+            "correct": 161,
+            "accuracy": 0.6545
+          },
+          "tool_all_success": {
+            "n": 220,
+            "correct": 147,
+            "accuracy": 0.6682
+          },
+          "tool_any_error": {
+            "n": 26,
+            "correct": 14,
+            "accuracy": 0.5385
+          }
+        }
+      }
+    }
+  }
+}
