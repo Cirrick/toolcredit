@@ -1,0 +1,37 @@
+\section{智能体 RL：多轮、使用工具、长 horizon 的智能体}\label{sec:agentic}
+
+\paragraph{从 bandit 到 POMDP}
+\citet{zhang2025landscape} 通过对比来定义智能体 RL（agentic RL）：第~\ref{sec:background}~节的 LLM RL 是一个退化的单步 MDP（提示、一次补全、一个标量奖励），而智能体则在一个时间上延展的 POMDP 中行动。一条轨迹（trajectory）为 $\tau=(q,a_1,o_1,a_2,o_2,\dots,a_T)$，其中每个动作 $a_k$ 是一\emph{轮}（turn），即以一次工具调用或最终答案结尾的一段生成 token，$o_k$ 是工具或环境返回的观测。环境状态（解释器变量、文件系统、网页）是隐藏的；策略只能看到历史 $h_k=(q,a_{<k},o_{<k})$，奖励通常只在最后到来一次，即 $R(\tau)$。这里嵌套着两个时间尺度：$T$ 轮，每轮 $|a_k|$ 个 token。观测 token 不是从 $\pi_\theta$ 采样的：它们是离策略的输入，却影响此后的每一轮。把 GRPO 优势（式~\ref{eq:grpo-adv}）用到 $\tau$ 上，每一轮的每个生成 token 都得到相同的值。因此信用分配有两个层次：\emph{哪一轮}，以及\emph{该轮中的哪些 token}；本综述关注前者。
+
+\paragraph{任务类别与 horizon}
+表~\ref{tab:task-families} 列出了主要类别。horizon 跨越约三个数量级：用于数学和搜索问答的工具集成推理（tool-integrated reasoning，TIR）只有几轮，文字游戏和网页导航为几十轮，SWE 智能体为几十到上百轮，研究型智能体则达数百轮——MiroThinker 每个任务最多可调用 600 次工具 \citep{miromind2025mirothinker}，2026 年的一个 harness 环境甚至允许多达 1{,}000 步\unverified。共同点在于奖励：几乎所有 2025 年的系统都用仅含结果的轨迹级奖励训练，通常是最终答案正确性加一个格式项。例外很少：StepSearch \citep{wang2025stepsearch} 加入了逐步的信息增益奖励\unverified，R1-Searcher \citep{song2025r1} 和 verl-agent/GiGPO \citep{feng2025group} 结合了结果信号与过程信号。数学 TIR 是 ToolCredit 研究（第~\ref{sec:toolcredit}~节）所在的设置，也是 horizon 最短的一档：它是研究轮级信用最干净的试验场，同时也是在其上得到的任何结论的外部效度所面临的主要威胁。
+
+\begin{table}[t]
+\centering
+\small
+\caption{智能体任务类别。轮数是根据报告的上限和平均值整理的粗略档位；标有 \unverified{} 的条目所依据的上限未对照原始来源复核。}
+\label{tab:task-families}
+\begin{tabularx}{\textwidth}{@{}l X l l@{}}
+\toprule
+任务类别 & 代表性工作 & 典型轮数 & 奖励 \\
+\midrule
+TIR 数学（代码解释器） & ReTool \citep{feng2025retool}, ToRL \citep{li2025torl}, ZeroTIR \citep{mai2025agent}, SimpleTIR \citep{xue2025simpletir} & $\sim$1--10 & 答案匹配 \\
+搜索问答 & Search-R1 \citep{jin2025search}, R1-Searcher \citep{song2025r1}, ReSearch \citep{chen2025research}, ZeroSearch \citep{sun2025zerosearch} & $\sim$2--10\unverified & 答案匹配 \\
+文字游戏、具身、网页导航 & RAGEN \citep{wang2025ragen}, GiGPO \citep{feng2025group}, AgentGym-RL \citep{xi2025agentgym}, WebAgent-R1 \citep{wei2025webagent} & 15--50\unverified & 任务成功 \\
+软件工程 & SWE-RL \citep{wei2025swe}, SWE-Gym \citep{pan2024training}, R2E-Gym \citep{jain2025r2e}, DeepSWE \citep{agentica2025deepswe} & 50--100+\unverified & 测试；补丁相似度 \\
+深度研究/网页搜索 & ASearcher \citep{gao2025beyond}, WebSailor \citep{li2025websailor}, Kimi-Researcher \citep{moonshot2025kimi}, MiroThinker \citep{miromind2025mirothinker} & 数十--600 & 答案匹配 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{2025 年的技巧修了什么}
+\emph{稳定性修补：}工具和检索返回的 token 不计入损失（mask 掉），这一做法由搜索智能体引入 \citep{jin2025search}\unverified。仅靠 mask 并不够：在 SimpleTIR \citep{xue2025simpletir} 中，作为输入回传的低概率工具输出 token 会跨轮累积，导致梯度范数爆炸；把含有\emph{空轮}（void turn，既无代码也无最终答案）的轨迹从更新中剔除后，Qwen2.5-7B 在 AIME24 上从 22.1 提升到 50.5。RAGEN \citep{wang2025ragen} 把多轮训练的失效模式称为\emph{回声陷阱}（Echo Trap：奖励方差坍缩、熵下降、梯度尖峰），并用基于方差的轨迹过滤、critic 基线和解耦截断（StarPO-S）来应对。ARPO \citep{dong2025agentic} 和 AEPO \citep{dong2025agenticentropy} 在工具调用后熵陡增的位置对 rollout 进行分支。\emph{horizon 与数据修补：}完全异步的 rollout 防止长轨迹拖住整个 batch（\citealp{gao2025beyond,fu2025areal}）；上下文管理只保留最近的工具返回，使 256K token 能容纳 600 次调用 \citep{miromind2025mirothinker}；合成的难题则提供可学习的信号 \citep{li2025websailor}。这些配方都不决定\emph{哪一轮该得到功劳}：过滤（空轮、StarPO-S、DAPO 式零方差过滤）改变的是哪些轨迹进入更新，而不是结果如何在轨迹内部归因（ARPO 在共享段与分支段之间的归因算是部分例外\unverified）。
+
+\paragraph{框架}
+veRL/HybridFlow \citep{sheng2025hybridflow} 是学术界默认的底座；出于工具延迟长尾问题而出现的替代方案包括 OpenRLHF \citep{hu2024openrlhf}、AReaL \citep{fu2025areal}、ROLL \citep{wang2025reinforcement} 和 Agent Lightning \citep{luo2025agent}。信用分配真正需要的功能很少被列为卖点：按轮分组、在 batch 中保留轮边界，以及从中间状态分支。
+
+\paragraph{环境能否重置到中间状态？}
+这个问题决定了哪些信用方法根本可行。蒙特卡洛轮价值、兄弟节点基线和反事实的“重做这一轮”估计，都要从第 $k$ 轮之后的状态重新开始。在 2025 年的技术栈中，唯一通用的机制是\emph{前缀重放}（prefix replay，重新执行已存前缀中的工具调用），它只对确定性、无状态的工具是精确的。带 Python 解释器的数学任务几乎是无状态的（每次用新的沙箱，或通过重放先前的代码单元重建状态），所以从任意一轮分支的成本只比多生成一些内容高一点。SWE、终端、操作系统和网页智能体则不然：它们的状态存在于容器、文件系统或实时网络中（实时网络还是非平稳的，ZeroSearch 因此采用模拟搜索引擎；\citealp{sun2025zerosearch}）。在这些场景下重置需要检查点/恢复基础设施，这类工作在 2026 年集中出现。分支策略优化（Branching Policy Optimization，BPO；\citealp{bpo2026branching}）在分支点对沙箱做快照，构建树状 rollout，以兄弟节点作为基线，并明确提出\emph{快照保真}（snapshot fidelity）假设（恢复后得到完全相同的转移分布）。DeltaBox \citep{deltabox2026} 提供毫秒级的检查点/回滚，并指出在数十到数百个分支时，fork 延迟会成为训练吞吐的上限。Crab \citep{crab2026} 从检查点 fork，而不是重新执行共享前缀，并以 Tree-GRPO 式负载 \citep{ji2025tree} 为例；工作区 fork（ForkRL）和逐轮 SWE 快照（SPROUT）也沿着同一方向\unverified。rollout 分支由此本身成为一种信用估计器，其成本从几乎免费（数学 + Python）到受基础设施制约（SWE、网页）不等。
+
+\paragraph{信用何时成为瓶颈}
+一旦稳定性得到控制，剩下的问题就是哪一轮导致了结果。这正是 2025 年各种轮级方法——MT-GRPO \citep{wei2025reinforcing}、GiGPO \citep{feng2025group}、SPA-RL \citep{wang2025spa} 和 Tree-GRPO \citep{ji2025tree}——明确提出的动机，也是 2026 年约十几篇关于留一轮（leave-one-turn）、信息增益和基于评分细则（rubric）归因的轮级奖励预印本的动机\unverified。这是一个拥挤的领域，却没有标准基准或比较协议；第~\ref{sec:taxonomy}~节对它们加以梳理。

@@ -1,0 +1,96 @@
+\section{记忆增强智能体与 Memory-R2：细读}\label{sec:memory}
+
+长期记忆是智能体信用分配问题最典型的例子：策略决定写入、改写或删除什么，却要等到问题到来（往往是许多个会话之后）才知道这一决定好不好。本节先梳理该领域全貌，再细读 Memory-R2~\citep{yan2026memory}，并追问其证据到底确立了什么。
+\emph{来源说明。}我们无法获取 Memory-R2 的全文或代码；摘要之外的细节来自 arXiv HTML 页面和 GitHub README 的摘录，均标注 \unverified，来自已有知识的编号和事实也同样标注。
+
+\subsection{把记忆视为动作空间}
+
+\paragraph{非 RL 的记忆系统}
+第一代系统采用固定流水线，由提示驱动的 LLM 选择每一个操作：MemGPT 在上下文与外部存储之间换页~\citep{packer2023memgpt}，A-Mem 维护相互链接的笔记~\citep{xu2025amem}，Mem0 对向量库执行 ADD\slash UPDATE\slash DELETE\slash NOOP~\citep{chhikara2025mem0}，Zep 则使用时序知识图谱~\citep{rasmussen2025zep}\unverified。这些系统都不会根据“存下的事实后来是否有用”进行学习。甚至已报告的数字也有争议：Zep 在 LoCoMo 上重跑自己的系统得到 75.14\%，而 Mem0 为其报告的是 65.99\%~\citep{zepmem0}（Zep 是利益相关方）。
+
+\paragraph{用于记忆与上下文管理的 RL}
+RL 方向的工作直接训练写入 / 读取策略（表~\ref{tab:mem-rl}），对象要么是单个长任务的工作记忆，要么是跨会话的持久记忆。2026 年，记忆写入的信用分配成为一个明确的研究课题。
+
+\begin{table}[t]
+\centering\small
+\caption{经 RL 训练的记忆与上下文管理。“信用”指学习信号如何到达单个记忆决策。}
+\label{tab:mem-rl}
+\begin{tabularx}{\textwidth}{@{}l l X X@{}}
+\toprule
+方法 & arXiv & 训练对象 & 信用如何获得 \\
+\midrule
+MEM1~\citep{zhou2025mem1} & 2506.15841\unverified & 固定大小的内部状态，每轮重写 & 轨迹级结果奖励\unverified \\
+MemAgent~\citep{yu2025memagent} & 2507.02259\unverified & 固定长度记忆，逐块覆盖 & 结果奖励，多对话 DAPO\unverified \\
+Mem-$\alpha$~\citep{wang2025mem} & 2509.25911 & 分层（核心 / 语义 / 情景）记忆的构建 & 基于下游结果的 RL\unverified \\
+Memory-R1~\citep{yan2025memory} & 2508.19828 & 记忆管理器与回答智能体 & 以答案正确性为结果奖励的 RL（PPO/GRPO） \\
+Mem-T~\citep{memt2026mem} & 2601.23014 & 构建与检索联合训练 & MoT-GRPO：沿记忆操作树反向传播，加上事后信用 \\
+Tree-based CA~\citep{treecredit2026} & 2605.04811 & 多智能体记忆系统 & 基于树的信用（仅见于标题） \\
+Memory-R2~\citep{yan2026memory} & 2605.21768 & 共享的抽取器与管理器 & LoGo-GRPO：全局 GRPO 加上从共享记忆状态出发的局部重 rollout \\
+Uni-Mem~\citep{unimem2026} & 2610.29671 & 统一的构建与检索管理器 & Stage-Decoupled GRPO 加“ECA” \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{为什么记忆是信用分配的难题}
+一次记忆写入就像一笔存款，很久以后可能被取出，也可能永远不会。(i)~\emph{延迟}：第~3 个会话写入的事实可能到第~30 个会话才用上。(ii)~\emph{反事实价值}：DELETE 或 NOOP 只有在未来某个问题本会用到该事实时才有影响。(iii)~\emph{相互作用}：一次 UPDATE 的价值取决于其后的 UPDATE。(iv)~\emph{环境噪声}：检索器和回答智能体都是环境的一部分，所以奖励中也包含它们的错误。(v)~\emph{覆盖稀疏}：大多数存下的事实从未被查询，因此大多数写入得不到任何信号。
+在这些之上还有一个结构性问题，我们称之为\emph{同组不同中间状态}。GRPO 在同一段对话上比较 $G$ 条 rollout，仿佛它们面对的是同一个任务。如果 rollout~A 在第~3 个会话删除了某个事实而 rollout~B 保留了它，那么到第~20 个会话时，二者是在不同的记忆库上行动，即处于不同的环境中。组均值只对共同的起始状态才是有效基线，因此在一条已经受损的 rollout 中，一次后期的好写入也可能得到负优势。
+
+\paragraph{基准及其问题}
+LoCoMo~\citep{maharana2024evaluating} 是 Memory-R1/R2 的训练与评测集，只有大约十段长对话\unverified{}，都能装进现代模型的上下文窗口，因此必须设置全上下文基线。一项未经同行评审的审计发现，1{,}540 道题中有 99 道（6.4\%）存在会污染分数的错误，且 LLM 评审会接受多达 63\% 的故意错误答案~\citep{penfieldlocomo}；446 道对抗性问题中有 444 道的标准答案为空~\citep{atant2026}。LongMemEval~\citep{wu2024longmemeval}（500 道题，涉及时序与多会话推理、知识更新和偏好）和 MemoryAgentBench~\citep{hu2025evaluating}（增量输入；检索、测试时学习、长程理解、选择性遗忘）覆盖面更广；2026 年也有工作质疑，对不断演化的记忆而言，单一分数是否足够~\citep{onescore2026}。
+
+\subsection{Memory-R1 简介}
+Memory-R1~\citep{yan2025memory}（ACL~2026）只用 152 个 LoCoMo 问答对，通过结果 RL 训练两个模块：对每条抽取出的事实选择 ADD\slash UPDATE\slash DELETE\slash NOOP 的\emph{记忆管理器}（Memory Manager），以及过滤检索到的记忆的\emph{回答智能体}（Answer Agent）（PPO 或 GRPO，GRPO 总体更好）。按我们对 v1 表格的读法，相对 Mem0，整体 F1 为 31.41$\to$45.20（LLaMA-3.1-8B）和 38.44$\to$46.70（Qwen-2.5-7B）\unverified；不同 arXiv 版本中的相对提升不一致，因此引用时给出绝对分数并注明版本更稳妥。管理器的奖励取决于回答智能体随后是否答对\unverified，即每次更新的有效 horizon 很短，而这正是 Memory-R2 去掉的假设。
+
+\subsection{Memory-R2}
+
+\paragraph{问题设定}
+据作者的公告，Memory-R2~\citep{yan2026memory} 已被 NeurIPS~2026 接收\unverified。它在四个方面改动了 Memory-R1。(1)~事实\emph{抽取器}与记忆\emph{管理器}共享同一个 Qwen2.5-7B-Instruct 策略，只是角色提示不同；管理器发出 INSERT\slash UPDATE\slash DELETE\unverified{}（NOOP 是否保留尚不清楚）。(2)~回答智能体（GPT-OSS-120B）被冻结\unverified，因此信用完全在写入侧。(3)~奖励是下游问答表现，每条轨迹计算一次；具体指标在我们的来源中未给出。(4)~horizon 按 8$\to$16$\to$32 个会话的课程递增，32 会话的 checkpoint 以零样本方式在分布外评测。训练只用了两段 LoCoMo 对话\unverified，结果为三次运行的平均\unverified。
+
+\paragraph{公平性论证}
+一旦各条 rollout 写入了不同的记忆，“它们就不再共享相同的中间记忆状态，这使得轨迹级比较从根本上不公平”\unverified：GRPO 的组均值估计的是 $V(m_0)$，而第 $u$ 个会话中的决策需要的是 $V(m^{(i)}_{u-1})$，后者在不同 rollout 之间各不相同。
+
+\paragraph{LoGo-GRPO（我们的示意性解读）}
+设 $\tau_1,\dots,\tau_G$ 为同一段含 $S$ 个会话的对话上的全局 rollout，$m^{(i)}_{s}$ 为 rollout $i$ 在第 $s$ 个会话之后的记忆库，$R(\tau_i)$ 为冻结回答智能体给出的问答奖励。\emph{全局}优势就是标准的轨迹级 GRPO：
+\begin{equation}
+A^{\mathrm{glob}}_i=\frac{R(\tau_i)-\operatorname{mean}_{j}R(\tau_j)}{\operatorname{std}_{j}R(\tau_j)}.
+\end{equation}
+对采样到的会话 $u$，保存快照 $m^{(i)}_{u-1}$，并从这一完全相同的状态出发把会话 $u$ 重新 rollout $K$ 次，得到奖励 $r_1,\dots,r_K$。\emph{局部}优势在这些兄弟样本内归一化：
+\begin{equation}
+A^{\mathrm{loc}}_{i,u,k}=\frac{r_k-\operatorname{mean}_{l}r_l}{\operatorname{std}_{l}r_l},\qquad
+A_{i,u}=A^{\mathrm{glob}}_i+\lambda\,A^{\mathrm{loc}}_{i,u}.
+\end{equation}
+$A_{i,u}$ 在带裁剪的 GRPO 代理目标中作用于第 $u$ 步的每个 token，这与论文的描述一致：“每一步的优势……即第 $u$ 步中所有 token 的 token 级优势”\unverified。局部项是对状态条件基线的 Monte-Carlo 估计，与第~\ref{sec:tax-mc}~节中的 (b) 类相同。
+我们的来源\emph{没有}说明：两项如何组合（$\lambda$ 是我们的记号）、组大小 $G$ 和 $K$、每条轨迹对多少个会话做快照、$r_k$ 是来自跑完剩余会话还是来自会话局部的代理指标，以及相对 GRPO 的额外开销。如果局部重 rollout 要一直跑到 horizon 结束，则每条做了快照的轨迹约需额外执行 $\sum_{u\in\mathcal U}K(S-u+1)$ 次会话（$\mathcal U$：做了快照的会话集合）；这一估计是我们自己给出的。
+
+\begin{table}[t]
+\centering\small
+\caption{Memory-R2 在 LoCoMo 上的数字，摘自 arXiv HTML 页面（全部 \unverified）。由于 49.67 $\approx$ 49.7，我们推测消融实验使用的是 GPT-OSS 回答智能体，而 50.60 这一主结果来自另一种配置。另有一个报告的 LongMemEval-oracle 数字与 LoCoMo 主结果完全相同；我们认为很可能是混淆，故略去。}
+\label{tab:memr2}
+\begin{tabularx}{\textwidth}{@{}X l r r@{}}
+\toprule
+对比 & 指标 & 之前 & 之后 \\
+\midrule
+Memory-R1 $\to$ Memory-R2（R2 的设定） & F1 / BLEU-1 & 43.14 / 36.44 & 50.60 / 44.01 \\
+\quad LLM 评审分数，Memory-R2 & J & -- & 80.99 \\
+消融：GRPO $\to$ LoGo-GRPO & F1 / BLEU-1 & 46.62 / 40.97 & 49.67 / 43.77 \\
+未训练 $\to$ 训练后的记忆，7B-Base 回答智能体 & F1 & 26.4 & 45.2 \\
+未训练 $\to$ 训练后的记忆，GPT-OSS-120B 回答智能体 & F1 & 30.6 & 49.7 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{结果}
+在控制骨干模型的对比中，Memory-R2 在免训练和需训练的基线（包括 MEM1、MemAgent 和 Memory-R1）中报告了最好的 F1 和 BLEU-1（表~\ref{tab:memr2}）。大部分提升来自训练记忆模块，而非回答智能体；把 LoGo-GRPO 换成普通 GRPO 约损失 3 个 F1。作者还报告了在 LongMemEval、MSC-Self-Instruct 和 MemBench~\citep{tan2025membench} 上相对基座模型的零样本提升，以及从 3B 到 7B 的迁移，其中较小模型的提升最大\unverified。与 Mem-T 和基于树的 CA 一样，LoGo-GRPO 通过\emph{从共享状态分叉}来获得逐步基线，这正是 VinePPO 和 Tree-GRPO 背后的思路；它的贡献在于在会话和记忆状态层面分叉，同时保留一个端到端的全局项。
+
+\subsection{批判性评估}\label{sec:memory-critique}
+以下内容我们作为开放问题提出，而非定论；我们未能读到的全文或许已回答了其中一部分。
+\begin{itemize}
+\item \textbf{可重置性。}LoGo-GRPO 假设记忆库可以被精确地保存快照和恢复。这对文本存储成立，但对有副作用的环境（邮件、文件系统、实时网络）不成立。没有精确重置时，应如何构建公平的局部基线，例如借助学到的状态抽象，或 GiGPO 式的锚点（第~\ref{sec:tax-gigpo}~节）？
+\item \textbf{等算力。}相对 GRPO 的 3 个点提升，伴随着未报告数量的额外 rollout，而仅靠额外 rollout 就可能带来这种量级的提升：在 ToolCredit 研究中（第~\ref{sec:toolcredit}~节），一个 rollout 数为其 GRPO 基线 2.53$\times$ 的变体在终点提升了 +5.13 个点，但在等算力条件下没有提升。缺失的基线是使用相同会话执行次数和 token 数的 GRPO。
+\item \textbf{证据规模。}只有两段训练对话、十段对话的基准，多个随机种子无法替代对话多样性；置信区间应在对话层面计算。LoCoMo 答案键中的错误带来的噪声，可能与 3 个点的效应相当。
+\item \textbf{评审敏感性。}Uni-Mem 用与 Mem0 对齐的评审提示重新评测了已发布的 RL 记忆 checkpoint，报告称超过了其中最强者~\citep{unimem2026}，这说明 J 分数在不同论文之间不可比。
+\item \textbf{更强的评测}应当加入 rollout 数匹配的 GRPO 和全上下文基线，以 LongMemEval 和 MemoryAgentBench 作为主要基准，使用多个评审，并实测优势方差的下降，以表明局部项确实解决了它所针对的问题。
+\end{itemize}
+
+\paragraph{作者的研究方向}
+Memory-R1/R2 出自 Volker Tresp 和 Yunpu Ma 的研究组（LMU Munich/MCML\unverified），他们 2026 年的论文指向\emph{自我改进的智能体}：记忆 RL、通过混合策略蒸馏实现推理压缩~\citep{yang2026reasoning}，以及在冻结骨干上的元技能演化~\citep{wang2026metaskill}。把记忆信用与技能或经验演化结合起来的想法，与这条路线十分接近（第~\ref{sec:agenda}~节）。

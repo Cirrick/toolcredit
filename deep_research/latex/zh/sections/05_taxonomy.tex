@@ -1,0 +1,74 @@
+\section{LLM 智能体信用分配方法的分类}\label{sec:taxonomy}
+
+除粒度（表~\ref{tab:granularity}）之外，\citet{zhang2026from} 还按\emph{方法论}对方法分类：Monte-Carlo、时序差分、LLM 作为 critic 或基于模型、博弈论，以及信息论。他们的快照涵盖 47 种方法（41 种核心方法加 6 种相关支撑技术），核心论点是：推理侧的信用分配正收敛到 PRM 和无 critic 的组内比较，而智能体侧的信用分配仍在不断涌现新机制，包括事后反事实、特权 critic 和轮级 MDP。
+
+我们按机制把方法分为 (a)--(f) 六类。除粒度外，还有两个同样重要的问题：\emph{环境必须提供什么}（可重置的状态、反复出现的状态、标准答案、验证器、特权信息），以及\emph{额外算力花在哪里}？每一类末尾用一句话的“画像”回答这两个问题；表~\ref{tab:comparison} 对此做了汇总。与第~\ref{sec:intro}~节一致，“提升”均在相同轨迹数下衡量；第~\ref{sec:tax-failures}~节解释这一点为何重要。
+
+\subsection{(a) 过程奖励与隐式稠密奖励}\label{sec:tax-prm}
+
+\emph{思路。}把步骤打分器的输出当作稠密奖励。早期 PRM 用 Monte-Carlo 续写的成功率标注步骤（Math-Shepherd；\citealp{wang2024math}\unverified），或由人工标注~\citep{lightman2023lets}\unverified；PRIME~\citep{cui2025process}\unverified{} 等隐式 PRM 只用结果标签学习步骤分数，其基础是 DPO 中隐含的 token 级 Q 值~\citep{rafailov2024from}\unverified。
+
+\emph{奖励被钻空子的发现。}PURE~\citep{cheng2025stop} 发现，PRM 引起的奖励钻空子（reward hacking）主要源于标准的\emph{求和}式回报：在这种回报下，策略会专门去找 PRM 本来就打高分的步骤；求和式变体在训练第 25 步左右崩溃。\emph{取最小值}式价值（一个回复的价值等于其最弱一步的分数）则保持稳定，再加入少量可验证奖励还能进一步减少钻空子。2026 年的一项后续工作报告称，取最小值形式只是推迟了钻空子的发生~\citep{uprm2026unsupervised}\unverified。
+
+\emph{在智能体中。}智能体很少有逐步的正确性标签，因此实际可用的智能体 PRM 要么从结果中学习进度，要么借助环境提供的 oracle。AgentPRM 用 TD 和 GAE 估计轮的价值~\citep{xi2025agentprm}\unverified。iStar/OPRL 在线训练隐式 PRM 并与结果奖励融合，并认为从结果学到的 token 级 PRM“对智能体学习而言过于细粒度”~\citep{istar2025online}。VPR 把符号化或算法化的 oracle 转化为可验证的轮级奖励~\citep{vpr2026verifiable}。在这三者中，结果奖励都仍占主导。
+
+\emph{画像。}需要验证器、标签或以结果训练的打分器（无需重置）；代价是训练 PRM 加上每步一次前向；方差低但有偏、可被钻空子，因此只适合作为可验证结果之上的塑形（shaping）。在数学任务上有效，与结果奖励混合后在 WebShop 和 ALFWorld 类智能体上也有效。
+
+\subsection{(b) Monte-Carlo rollout 与树 / 分叉估计器}\label{sec:tax-mc}
+
+\emph{思路。}要估计某个中间状态的价值，就回到该状态采样 $K$ 条续写；这些价值之差即可给出步级优势，无需 critic。VinePPO 用这种“藤蔓”（vine）估计替代 PPO 的价值网络~\citep{kazemnejad2024vineppo}\unverified。SPO 在选定位置切分思维链，逐段计算 Monte-Carlo 优势~\citep{guo2025segment}\unverified。TreeRL~\citep{hou2025treerl}\unverified{} 和 TreePO~\citep{li2025treepo}\unverified{} 构建在不确定 token 处分叉的同策略（on-policy）树。
+
+\emph{智能体树。}对智能体而言，分叉（branching）是一种\emph{节省预算}的手段，因为兄弟节点共享前缀：节点为完整智能体轮的 Tree-GRPO~\citep{ji2025tree} 报告称，在多跳问答（Qwen2.5-3B）上，它只用四分之一的 rollout 预算（按 token 和工具调用计）就超过了基于链的方法。ARPO~\citep{dong2025agentic}\unverified{} 和 AEPO~\citep{dong2025agenticentropy}\unverified{} 在工具调用后 token 熵骤升处分叉，AT$^2$PO 则在按熵扩展的轮树上加入逐轮信用~\citep{at2po2026agentic}\unverified。对于有状态沙箱，BPO 以沙箱快照（snapshot）出发的兄弟续写作为基线，前提是快照保真假设成立（\citealp{bpo2026branching}；第~\ref{sec:agentic}~节）。
+
+\emph{记忆智能体。}Memory-R2 的 LoGo-GRPO~\citep{yan2026memory} 属于这一类：它保留 GRPO 的轨迹级（“全局”）优势，并加入会话级（“局部”）优势，后者来自从\emph{同一}中间记忆状态的快照出发的局部重 rollout（rerollout）。Mem-T 的 MoT-GRPO 同样把终端反馈沿记忆操作树反向传播~\citep{memt2026mem}。第~\ref{sec:memory}~节将细读 LoGo-GRPO。
+
+\emph{画像。}需要可分叉的状态（文本和无状态 Python 可以重放前缀，沙箱需要 checkpoint）；vine 方法每个估计点约需 $K$ 条部分 rollout，而树方法是在固定预算内重新分配；无偏，但 $K$ 小时方差高，且兄弟样本彼此相关。在数学以及搜索、多跳问答智能体上有效。
+
+\subsection{(c) 锚状态分组}\label{sec:tax-gigpo}
+
+\emph{思路。}如果同一个环境状态在同一 prompt 采样出的 $G$ 条轨迹中反复出现，就直接比较在这个“锚”状态（anchor state）上采取的不同动作。GiGPO 在 GRPO 的外层轨迹组之外增加了一个内层的步级组，使用每次出现处的折扣回报~\citep{feng2025group}。它不需要额外 rollout，也不需要 critic，报告称在 ALFWorld 上比 GRPO 提升 12\% 以上，在 WebShop 上提升 9\% 以上。
+
+\emph{局限。}作者自己指出，精确的状态匹配是主要局限。网格、房间和网页状态经常重复出现；而在带 Python 解释器的数学任务中，状态是完整历史加上工具输出，锚组会缩小到只含单条轨迹，GiGPO 也就退化为 GRPO（这是我们的推断；我们没有找到 GiGPO 在代码解释器工具调用上的报告）。后续工作把精确匹配放宽为轨迹图或状态图，例如 SALT~\citep{salt2026step}\unverified{} 和 RewardFlow~\citep{rewardflow2026topology}\unverified。
+
+\emph{画像。}需要反复出现的状态（无需重置或验证器）；额外算力几乎为零；精确锚点无偏，基于相似度的锚点则以偏差换覆盖面。在 ALFWorld 和 WebShop 上有效。
+
+\subsection{(d) 轮级奖励与 critic}\label{sec:tax-turn}
+
+\emph{思路。}把每一轮或每次工具调用视为轮级 MDP 中的一个动作，给它单独的奖励或价值。三个子类的假设各不相同：
+\begin{itemize}
+  \item \textbf{可验证或由评审给出的轮级奖励。}MT-GRPO 对可验证的轮（工具调用格式正确、执行成功）用自动检查，对主观的轮用 LLM 评审~\citep{wei2025reinforcing}\unverified。执行检查不花钱，但它衡量的是有效性，而非进展。
+  \item \textbf{学习得到的轮级 critic。}ArCHer 在同策略的 token 级 actor 之外，训练一个离策略的轮级 critic~\citep{zhou2024archer}\unverified。Turn-PPO 使用轮级的重要性比率和优势~\citep{turnppo2025turn}\unverified。SWEET-RL 训练一个\emph{非对称} critic，它能看到训练时的特权信息，例如参考答案~\citep{zhou2025sweet}\unverified。
+  \item \textbf{基于标准答案似然的信号。}这类无 critic 信号按每一轮使模型对已知答案的概率提高了多少来打分：IGPO（信息增益；\citealp{igpo2025information}\unverified）和 $\Delta$Belief-RL~\citep{deltabelief2026intrinsic}\unverified{} 使用策略自身的概率；TRACE 则使用一个\emph{冻结}参考模型的概率，以该值的 TD 变化奖励每次工具调用，同时保留结果奖励~\citep{trace2026turn}。一份第三方总结报告称，使用 TRACE 后 Qwen3-4B 在 BrowseComp-Plus 上从 7.2 升至 35.6\unverified。
+\end{itemize}
+
+\emph{2026 年的方法集群。}TCPO~\citep{tcpo2026turn}、无需验证器的结果势函数~\citep{sop2026self}，以及社区索引中收录的 LAPO（leave-one-turn）、ECHO 和 SPADER~\citep{thinkwee2026agentsmeetrl}\unverified{} 等方法挤满了这一方向；由于没有共享基准（benchmark），它们之间很少相互比较。
+
+\emph{画像。}假设有标准答案、特权通道或评审（无需重置）；代价是每轮一次冻结模型前向、训练 critic 或调用评审；似然信号可能被复述或泄露答案的轮钻空子，评审也有自身偏差。在搜索、深度研究智能体和 ColBench 类任务上有效。
+
+\subsection{(e) 事后、反事实、Shapley 与信息论方法}\label{sec:tax-hindsight}
+
+\emph{思路。}在事后把结果归因到各个步骤，方式是询问一个 critic，或对步骤施加扰动。
+\begin{itemize}
+  \item \textbf{LLM 事后（hindsight）critic。}HCAPO 用 LLM 自身作为事后 critic，通过事后推理和反事实续写来修正步级 Q 值~\citep{tan2026hindsight}。在 Qwen2.5-7B-Instruct 上，它报告 ALFWorld 为 91.4\%，而 GRPO 为 77.6\%（一份第三方表格给出 90.8），WebShop 成功率从 66.1\% 升至 73.8\%。RICOL 通过动作概率的变化，把反思型 LLM 的语言反馈转化为优势，但只在 BabyAI 上做了评测~\citep{chen2026retrospective}。
+  \item \textbf{反事实与 Shapley。}反事实 Shapley 值（Counterfactual Shapley Value）在结构因果模型上定义因果 $\phi$ 值，并在保持最优策略不变的前提下重新分配奖励~\citep{li2026counterfactual}；它尚无经确认的 LLM 实验。SSVPO 把序贯 Shapley 值用于语言模型的步级信用~\citep{ssvpo2026effective}\unverified。由于精确值的计算量是指数级的，实用方法都采样排列或 rollout。
+  \item \textbf{关键 token 选择。}在 Qwen3-32B 上，只对熵最高的 20\%（“分叉”）token 施加 DAPO 梯度，相比全 token DAPO 在 AIME'25 上提升 $+11.04$、在 AIME'24 上提升 $+7.71$，在 Qwen3-8B 上则与之相当~\citep{wang2025beyond}。这类方法决定的是\emph{哪些 token 接收梯度}，而不是某一步应得多少信用，因此可以与轮级方法组合使用。
+\end{itemize}
+
+\emph{画像。}事后 critic 每条轨迹多花一次 LLM 前向，且带有评审偏差；反事实和 Shapley 方法需要重置，代价与 Monte-Carlo rollout 相当；基于熵的选择几乎不花钱，但会忽略低熵 token 上的错误。在 ALFWorld、WebShop、BabyAI 和 AIME 上有效。
+
+\subsection{(f) 学习型价值模型的复兴}\label{sec:tax-value}
+
+\emph{思路。}让 token 级 critic 重新可用。VC-PPO 通过价值预训练和\emph{解耦} GAE（critic 使用 $\lambda=1$）修复了第~\ref{sec:background}~节所述的失效模式~\citep{yuan2025whats}；VAPO 加入长度自适应 GAE，以 Qwen2.5-32B 基座在 AIME 2024 上达到 60.4，超过 DAPO~\citep{yue2025vapo}。在智能体中，学习型 critic 主要存活在\emph{轮}级（ArCHer、Turn-PPO、AgentPRM）或以特权 critic 的形式存在（SWEET-RL），此时 critic 的单元与决策单元一致。我们没有找到受控证据表明，在多轮工具调用上、等算力（matched compute）条件下，token 级 critic 的 PPO 优于 GRPO 系方法。
+
+\emph{画像。}无需重置或验证器；代价是一个 critic 加上预训练；调好时方差低，但受价值误差影响而有偏。在长 CoT 数学上有效。
+
+\subsection{失效模式与审计}\label{sec:tax-failures}
+
+\paragraph{围绕工具的行为钻空子}
+稠密信用会对特定的工具行为产生激励。Proof-of-Use 记录了\emph{工具调用钻空子}（tool-call hacking）：深度研究智能体因为\emph{调用}工具而得到奖励，而不是因为用好了工具输出~\citep{proofofuse2025proof}。一份实践指南警告，逐次调用的塑形会被“刷检索调用”所利用，并建议让结果奖励占主导~\citep{fireworks2025best}；一些汇总性综述则报告了相反的失效，即不加区分地压制工具调用\unverified。一般而言，正的逐次调用奖励会诱发过度调用工具（over-calling），逐次调用成本则会诱发调用不足。Reward Hacking Benchmark 发现 RL 后训练与工具调用智能体更高的钻空子率相关；简单的环境加固就使钻空子减少了 5.7\,pp，且不损害任务成功率~\citep{rewardhacking2026benchmark}。
+
+\paragraph{信用到底对不对？}
+2026 年有几项工作直接检验信用信号。\emph{Credit Without Ground Truth}（\citealp{zhang2026credit}，arXiv 2608.19760）以\emph{执行重放}（executed replay）为参照审计步级信用，即重新执行替代动作以测量其因果效应（ALFWorld，Qwen2.5-7B-Instruct，50 条轨迹，约 20.5K 次重放 rollout）。LLM 评审分数、以结果为条件的对数概率比和策略置信度，都不比边缘分布匹配的随机打乱对照更可靠，并且只有 30.5\% 的决策点存在可测量的因果效应。在一项预注册的七臂训练研究中，不同信用规则之间的表面差异反映的其实是\emph{训练剂量}：稀疏信用会丢弃样本，导致优化器步数相差一个数量级，作者因此主张在等有效样本量（matched effective sample size）下比较\unverified。VICT 借助验证器插桩来追踪信用~\citep{vict2026verifier}\unverified。AgentCreditBench 在小型有限时域 MDP 中，用精确的策略优势 oracle 检验 GRPO、RLOO、GAE 和 GiGPO 给出的轮级信用~\citep{hectopascal2026agentcreditbench}\unverified。
+
+\paragraph{评测协议}
+(a)--(f) 类中的大多数论文都在\emph{相同轨迹数}下报告提升。有些方法多花 rollout（vine、反事实），有些节省 rollout（树），还有些丢弃样本（过滤、稀疏信用），因此相同轨迹数下的提升可能来自算力或剂量，而非更好的信用。Tree-GRPO 是少数报告了等 token 和等工具调用预算结果的工作之一~\citep{ji2025tree}。正面对比也很少：据一篇引用论文称，HCAPO 在 ALFWorld 上相对 GiGPO 的优势（约 3--4 个点）远小于其相对 GRPO 的优势~\citep{vict2026verifier}\unverified。我们建议同时报告等轨迹数、等 token 与工具调用数、以及等有效样本量下的结果。

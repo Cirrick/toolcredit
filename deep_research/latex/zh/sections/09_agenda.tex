@@ -1,0 +1,104 @@
+\section{研究方向与可执行计划}\label{sec:agenda}
+
+本节把综述内容转化为面向一位具体读者的选择：他手上有一条可运行的 veRL 多轮工具使用 GRPO 流水线，一张 GH200（146\,GB），模型为 Qwen3-1.7B，有一套预注册的等算力协议，以及 ToolCredit 研究得到的阴性或病态结果（第~\ref{sec:toolcredit}~节）。下文的评级与预测均为我们的判断，\unverified{} 标记的是我们只在摘要或二手来源中读到的说法。
+
+\subsection{哪些热门，哪些拥挤，哪些仍是空白}
+
+\paragraph{热门}
+一份第三方统计显示，NeurIPS 2026 中“LLM 智能体”方向的论文从 105 篇增至 312 篇，策略梯度 RL 从 55 篇增至 100 篇 \citep{scime2026neurips}\unverified；NeurIPS 2026 的 workshop 偏向智能体评测、持续学习和资源感知型智能体 \citep{neurips2026announcing}。信用分配已有专门综述 \citep{zhang2026from}，GiGPO \citep{feng2025group} 已是默认基线，扎实的分析型论文也会受到关注：\citet{yue2025does} 是 NeurIPS 2025 oral，另有一篇 RLVR 分析论文获得 ICML 2026 荣誉提名 \citep{icml2026awards}。
+
+\paragraph{拥挤}
+(i)~\emph{在数学上再做一个 GRPO 变体}：自报增益常在 1--3 个点\unverified，而这类改动大多提升的是效率而非渐近性能 \citep{khatri2025art}，ToolCredit 的过滤结果也说明了这一点。(ii)~\emph{短 horizon 工具使用中的轮级归因}：MT-GRPO \citep{wei2025reinforcing}、GiGPO、HCAPO \citep{tan2026hindsight}、金标似然轮级奖励，以及整理列表中 2026 年末新增的约十余项工作\unverified；它们没有共享基准，比较多在轨迹数相等的条件下进行，而此时训练剂量会混杂结果 \citep{zhang2026credit}。
+
+\paragraph{空白}
+仍有七个开放问题：(1)~\emph{有真值的信用质量评测}：信用分配综述呼吁构建带“受控分岔点”的任务 \citep{zhang2026from}\unverified{}，目前仅有的尝试是一个在微型 MDP 上提供精确 oracle 的测试集 \citep{hectopascal2026agentcreditbench}\unverified{}，以及一个没有真值的重放审计 \citep{zhang2026credit}；(2)~\emph{超长 horizon}：真实智能体要运行 100--1000 步，而多数工具使用 RL 研究止步于 $\leq$10 轮 \citep{zhang2025landscape}；(3)~\emph{探索 $\times$ 信用}：信用会塑造策略的探索方向（过度调用工具就是一例）；(4)~\emph{不可重置环境}：分支方法在这里失效；(5)~\emph{记忆与上下文操作}：Memory-R2 的公平性论证仍缺少等算力检验（第~\ref{sec:memory-critique}~节）；(6)~\emph{多智能体信用}：两篇综述都将其列为未解决问题 \citep{zhang2025landscape,zhang2026from}；(7)~\emph{等算力方法论}：对齐 rollout token 数、工具调用数和有效样本量（effective sample size）。
+
+\subsection{不同时间尺度上的可行性：现在、一年、三年}
+
+表~\ref{tab:agenda-viability} 针对单 GPU 研究者对各方向打分（“现在”指 2027 年 1 月的 ICML 与 ACL 截稿）。绑定当前短 horizon 基准的方法贬值最快；测量工具和长 horizon 问题则能保值。
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{单 GPU、1.7--8B 模型下的可行性（我们的判断；“一年”和“三年”两列属推测）。}
+\label{tab:agenda-viability}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+方向 & 现在（2027 年 1 月） & 一年 & 三年 \\
+\midrule
+数学上的 GRPO 变体微调 & \textbf{低}：已饱和 & \textbf{低}：剂量与验证器混杂被揭示 & \textbf{低}：被吸收进标准配方 \\
+短 horizon 工具任务的轮级信用 & \textbf{中--低}：拥挤；需要强基线 & \textbf{低}：面临等算力审视 & \textbf{低}：horizon 已向前推进 \\
+有状态智能体的分支/快照信用 & \textbf{中}：分叉基础设施新且笨重 & \textbf{中--高}：运行时趋于成熟 & \textbf{中}：被内置进框架栈 \\
+信用质量基准与审计 & \textbf{高}：综述呼吁；参与者少；成本低 & \textbf{中--高}：首个标准出现 & \textbf{中}：取决于采纳程度 \\
+记忆/上下文 RL（Memory-R2 路线） & \textbf{中--高}：热门；基准薄弱；需 7B+ & \textbf{高}：长 horizon 的需求 & \textbf{中--高}：核心能力 \\
+评判式奖励下的信用 & \textbf{中}：评判可靠性不明 & \textbf{中--高}：多数任务缺验证器 & \textbf{高}：前提是评判可被审计 \\
+多智能体信用 & \textbf{中}：开放但评测混乱 & \textbf{中}：需要共享试验平台 & \textbf{中--高} \\
+持续/自我演化智能体 & \textbf{中}：问题定义尚未定型 & \textbf{中--高} & \textbf{高}：工业界方向 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{候选研究想法}
+
+预算参考：据我们根据日志的估算，一次 ToolCredit 训练（200 步，约 102k 条轨迹）大约需要 10 GPU 小时。下文中 $T$ 表示以轮计的 horizon。
+
+\paragraph{想法 1：horizon 可控、真值可计算的信用基准}
+\emph{缺口。} 目前没有一个 LLM 规模的环境能既知道每轮的真实优势、又能调节 horizon；论文只报告终点准确率。\emph{假设。} 信用保真度（方法给出的每轮信用与真实优势的一致程度）随 $T$ 和干扰轮数的增加而下降；非守恒信号会把信用分给干扰轮，从而预示过度调用工具；在 $T\leq4$ 时保真度差异太小，不足以影响终点，这可以解释 ToolCredit 的阴性结果。\emph{最小实验。} 在 $T$ 轮中埋入 $k$ 个决定性轮的 Python 工具任务；工具是确定性且无状态的，因此真实优势可由因果结构或精确重放得到。(a)~在 $T\in\{2,4,8,16\}$ 上对六种估计器做离线审计：GRPO 广播、ToolCredit 的非守恒与守恒轮级信用、前缀分叉 Monte Carlo \citep{kazemnejad2024vineppo,ji2025tree}、锚点分组 \citep{feng2025group}，以及金标似然。(b)~在等算力下训练 3 种方法 $\times$ 3 个 horizon $\times$ 3 个 seed。\emph{算力。} 审计 1--2 GPU 天，另加 3--5 GPU 天、每次 $\sim$3\,h 的训练。\emph{风险。} “玩具任务”的批评（补充在 ToolCredit 真实 MATH 环境上用重放估计的保真度）；需要为真值定义辩护；被 AgentCreditBench 抢先。\emph{投稿目标。} ICML 2027；备选 NeurIPS 2027 Datasets \& Benchmarks。\emph{最接近的工作。} AgentCreditBench（微型 MDP，无 LLM 训练\unverified）、\citet{zhang2026credit}（重放审计，无真值）、QVal（arXiv 2606.32034）\unverified。本工作的新意在于：真实训练循环、可变 horizon，以及把保真度与等算力下的结果联系起来。
+
+\paragraph{想法 2：信用分配何时才有回报？}
+\emph{问题。} 在 ToolCredit 中只有 4--10\% 的轨迹得到非零修正（暴露度），且在 $T\leq4$ 时没有出现增益。\emph{假设。} 在等算力下，更细粒度信用带来的增益随 horizon 和暴露度增长，并存在一个可检测阈值。\emph{实验。} 在工具真正有用的题目上把工具预算提高到 8 轮和 16 轮（ToolCredit 的无工具对照发现，工具在 MATH 上没有显著价值）；用 3 个 seed 比较 GRPO、守恒信用和前缀分叉信用；用 ScaleRL 式曲线 \citep{khatri2025art} 拟合增益与 horizon、暴露度的关系。\emph{算力。} 约 20 次训练，10--12 GPU 天。\emph{风险。} horizon 变长也会让题目变难；曲线若是平的，结论偏弱。\emph{投稿目标。} 与想法 1 合并投 ICML 2027；否则投 ACL ARR 或 TMLR。\emph{最接近的工作。} \citet{zhang2026credit} 在单一 horizon 下发现了剂量混杂；本想法则在固定剂量的条件下改变 horizon。
+
+\paragraph{想法 3：把守恒作为防钻空子的原则}
+\emph{问题。} 每轮取值不求和为零的稠密信号，是策略可以“刷”的隐式奖励（ToolCredit 的 4-call 比例：非守恒时 1.3\%$\to$92.9\%，守恒时 0.8\%）。\emph{假设。} 让任何稠密信号在轨迹内满足守恒（零和，zero-sum），即可消除多调用工具的激励，同时不改变结果目标；我们推测，对组相对估计器而言，存在类似基于势函数的塑形 \citep{ng1999policy} 和 RUDDER 回报等价重分配 \citep{arjonamedina2019rudder} 的策略不变性结论。\emph{实验。} 把 2--3 种稠密信号改造为零和（执行奖励、金标似然、PRM 分数求和）；E4 和 E5 的训练已有，只需 6--9 次新训练。\emph{风险。} 可能被视为已知结论：PURE \citep{cheng2025stop} 和反事实 Shapley 重分配 \citep{li2026counterfactual} 都很接近。\emph{投稿目标。} workshop 或 ACL ARR。
+
+\paragraph{想法 4：带同预算基线的记忆写入信用}
+\emph{问题。} LoGo-GRPO 把 LoCoMo F1 从 GRPO 的 46.62 提高到 49.67 \citep{yan2026memory}，但其重新 rollout 增加了回合数，而我们找不到一个获得同样额外 rollout 的 GRPO 臂。\emph{假设。} 部分增益来自训练剂量。\emph{实验。} 用 1.7--4B 的写入策略配合冻结的回答智能体，设四个臂（GRPO、带匹配额外 rollout 的 GRPO、LoGo 式重新 rollout、全上下文），在 LongMemEval \citep{wu2024longmemeval} 和 MemoryAgentBench \citep{hu2025evaluating} 上评测。\emph{算力。} 数周。\emph{风险。} 移植成本、LoCoMo 标注噪声\unverified、对评判模型敏感。\emph{投稿目标。} NeurIPS 或 EMNLP 2027。
+
+\paragraph{想法 5：面向近乎无状态工具的廉价分支信用}
+精确的 Python 前缀重放使得在不确定轮处分叉 \citep{ji2025tree} 能以等 token 的方式低成本检验，但 Tree-GRPO、ARPO、AT$^2$PO 和 LoGo-GRPO 已把这一方向挤满；它最适合作为想法 1 中的一个实验臂。
+
+\paragraph{排序与推荐}
+按与现有资产的契合度、开放程度、1月22日前的可行性和被抢先的风险排序：\textbf{1 $>$ 2 $>$ 3 $>$ 4 $>$ 5}。\emph{首选}是想法 1，并以想法 2 的 horizon 扫描作为主训练实验：它几乎复用全部已有建设，并把过去的阴性结果变成一种解释。\emph{备选}是单独做想法 2，以防任务生成器或真值定义延期。想法 3 是低成本的副产品论文；想法 4 是自然的下一个项目。
+
+\subsection{如果今天开始：十周计划}
+
+ICML 2027 摘要截止于1月14日，正文截止于1月22日 \citep{icml2027reciprocal}；从11月17日起算的十周恰好赶上截稿，没有余量（表~\ref{tab:agenda-plan}）。
+
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{面向 ICML 2027 的想法 1（含想法 2 的扫描）十周计划。G = 继续/止损（go/no-go）关口。}
+\label{tab:agenda-plan}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.2cm}@{}}
+\toprule
+周次 & 工作内容 & 交付物 / 关口 \\
+\midrule
+第 1 周（11月17日） & 精读最接近的工作（2608.19760、2604.09459、AgentCreditBench、QVal）；定义真值信用；冻结预注册内容（假设、决策矩阵、算力横轴、seed） & \textbf{G0}：若该想法已被发表，转做想法 2 \\
+第 2 周（11月24日） & 在现有沙箱和验证器上实现埋入决定性轮的任务生成器；用精确重放检验解析优势 & 带测试的生成器 \\
+第 3 周（12月1日） & 记录 $T\in\{2,4,8,16\}$ 下的 rollout；把各估计器实现为作用于日志的纯函数 & \textbf{G1}：$T\geq8$ 时保真度差距的置信区间不含 0 \\
+第 4 周（12月8日） & 完成审计；训练冒烟测试；单次训练控制在约 3\,h & 保真度随 $T$ 变化图 \\
+第 5 周（12月15日） & 第 1 批训练：GRPO、守恒和分叉臂，$T\in\{4,16\}$，3 个 seed & 18 次训练 \\
+第 6 周（12月22日） & 第 2 批：$T{=}8$ 及非守恒臂；节假日缓冲 & \textbf{G2}：完成 MVR，或缩减到 $T\in\{4,16\}$ \\
+第 7 周（12月29日） & 真实任务锚点（在现有 ToolCredit checkpoint 上重放）；bootstrap 置信区间 & 数字冻结 \\
+第 8 周（1月5日） & 完整初稿与图表；时间允许则做干扰轮密度消融 & 初稿 v1 \\
+第 9 周（1月12日） & 提交摘要（1月14日）；内部评审；附录；代码发布 & 摘要已提交 \\
+第 10 周（1月19日） & 提交论文（1月22日）；随后选定备选会议 & 论文已提交 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{最小可行结果与论文内容}
+最小可行结果（MVR）包括：(i) 至少四种估计器的信用保真度随 horizon 的变化，附 bootstrap 置信区间；(ii) 在两个 horizon 上做一次预注册的等算力比较，无论结果正负都如实报告。图：环境示意图；保真度随 horizon 变化（主图）；干扰轮上的信用与过度调用工具的关系；分别以轨迹数、rollout token 数和梯度步数为横轴的学习曲线。表：各估计器的假设与开销；决策矩阵及其结果。
+
+\paragraph{可复用资产}
+沙箱、验证器、智能体循环配置、轮级信用代码（E5-v1/v2 改作估计器臂）、等算力 checkpoint 选取、算力记账、冻结评测和 bootstrap 置信区间，ToolCredit 中都已具备。
+
+\paragraph{如果进度落后}
+按以下顺序削减：LLM critic 臂；$T{=}16$ 的训练（保留在审计中）；锚点分组臂；次要臂减到 2 个 seed。预注册、算力记账以及主比较的 3 个 seed 绝不削减。若赶不上 ICML：ACL 2027 ARR（1月或2月\unverified）、NeurIPS 2027（可能在5月；推测）、ICLR 2027 workshop（推测），或 TMLR——它很适合扎实的阴性结果。
+
+\subsection{风险与降险措施}
+
+\emph{被抢先：}该领域按月演进，训练剂量的论点已经公开 \citep{zhang2026credit}；保留 G0 关口，每周查看整理好的信用分配论文列表，投稿时同步发布预印本，并把环境加协议作为贡献，这比一个方法更难被抢先。\emph{算力：}单 GPU 没有重跑的余地，且 ToolCredit 的训练曾因主机内存增长在 5--9\,h 后中断；训练要短、可续跑，并先做无需训练的审计。\emph{阴性结果：}把阴性结果呈现为一次测量（“保真度差异可以测出，但增益需要 $T\geq T^\ast$”）；预注册和等算力使其可信，\citet{yue2025does} 和 \citet{zhang2026credit} 说明这类分析论文能够发表。\emph{相关工作：}本文中许多 2026 年的编号和会议信息带有 \dag{} 标记（第~\ref{sec:intro}~节）；投稿前应通读每一篇被引用的 2026 年论文。
+
+\paragraph{结语}
+LLM 智能体的信用分配领域方法众多，却几乎没有办法衡量信用是否分对了。下一步最有用的贡献，是检验一个方法能否正确分配信用，以及从多长的 horizon 开始这一点变得重要；ToolCredit 的流水线和协议很适合用来构建这样的检验，而 Memory-R2 表明，随着智能体拥有记忆和更长的 horizon，这个问题会愈发重要。

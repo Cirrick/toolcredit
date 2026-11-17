@@ -1,0 +1,40 @@
+\section{跨家族比较与方法选型指南}\label{sec:comparison}
+
+没有哪一类方法全面占优：每一类要得到更好的信用，要么对环境做了某种假设，要么多花了算力。表~\ref{tab:comparison} 把这些取舍列在一起，它是我们对第~\ref{sec:taxonomy}~节的定性归纳（并非实测数值）；下面的指南再把它们与环境性质对应起来。
+
+\begin{table}[t]
+\centering\small
+\setlength{\tabcolsep}{2.5pt}
+\caption{跨家族比较。\textbf{Fork}：需要重置或分叉（fork）中间状态。\textbf{Rep}：需要状态在不同 rollout 间重复出现。\textbf{Verif}：需要逐步验证器、PRM 或评判模型（judge）。\textbf{Roll}：额外的 rollout 开销。\textbf{Bias}/\textbf{Var}：信用估计的偏差与方差。\textbf{Game}：策略钻信号空子的风险。Y = 是，N = 否，opt = 可选；L/M/H = 低/中/高；${\downarrow}$ = 在固定预算下可降低 rollout 开销。}
+\label{tab:comparison}
+\begin{tabularx}{\textwidth}{@{}l c c c c c c c >{\raggedright\arraybackslash}X@{}}
+\toprule
+家族 & Fork & Rep & Verif & Roll & Bias & Var & Game & 最适用场景 \\
+\midrule
+(a) 学习式/隐式 PRM & N & N & Y & L & H & L & H & 推理任务；用于智能体时只作为结果奖励之上的塑形 \\
+(a) 可验证过程奖励 & N & N & Y & L & L & L & M & 有可信的逐轮判定器（oracle）的环境 \\
+(b) MC vine/分段 & Y & N & N & H & L & H & L & 前缀重置廉价的短 horizon 推理 \\
+(b) 树/分支 & Y & N & N & L--M${\downarrow}$ & L & M & L & 搜索、TIR、可快照的沙箱 \\
+(c) 锚点分组 & N & Y & N & L & L & M & L & 离散且重复出现的状态（ALFWorld、WebShop） \\
+(d) 金标似然轮级奖励 & N & N & N & L & M & L & M & 训练时已知标准答案（数学、QA） \\
+(d) 评判/评分细则轮级奖励 & N & N & Y & L & M & L & H & 主观或不可验证的轮 \\
+(d) 轮级/特权 critic & N & N & opt & L & M & L & M & 仅训练时可用的特权信息、长回合 \\
+(e) LLM 事后 critic & N & N & Y & L & M & M & M & 无验证器；需审计 critic \\
+(e) 反事实/Shapley & Y & N & N & H & L & H & L & 分段少；理论与小规模实验 \\
+(e) 关键 token 选择 & N & N & N & L & M & M & L & 长思维链；可与任何家族组合 \\
+(f) 学习式 token critic & N & N & N & L & M & L & L & 长 CoT 数学，配合价值预训练 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{按环境性质选型}
+\begin{itemize}
+  \item \textbf{无状态或可前缀重放}（纯文本，或 Python 调用无状态的数学任务）。重放 token 前缀即可“重置”状态，因此分支估计器 (b) 能以低成本给出无偏的轮级价值。若有标准答案，金标似然轮级奖励 (d) 每轮只需一次前向。关键 token 选择 (e) 几乎不花成本，可叠加到上述任一方法。锚点分组 (c) 在这里帮助不大，因为完全相同的状态很少重复出现。
+  \item \textbf{有状态但可快照}（SWE、终端、网页和记忆沙箱）。只要快照保真，分支仍然可行~\citep{bpo2026branching}，但分叉延迟会限制吞吐~\citep{deltabox2026}。LoGo-GRPO 从共享记忆状态出发的重新 rollout 就属于这一情形（第~\ref{sec:memory}~节）。
+  \item \textbf{不可重置}（真实网页、真实用户、不可逆操作）。只剩下无需重置的方法：轮级或特权 critic (d, f) 与事后 critic (e)。这些信号没有真值，因此应尽可能用重放来审计它们~\citep{zhang2026credit}。
+  \item \textbf{Horizon（时域）。} 轮数少时，信用稀释并不严重，轮级方法改进空间有限（第~\ref{sec:toolcredit}~节）。horizon 变长后，更稠密信用的必要性随之上升，可被钻空子的逐轮信号的危险也一同上升。
+  \item \textbf{可验证奖励与评判奖励。} 有验证器时，应让结果奖励保持主导，把稠密信用当作塑形。只有评判模型时，评判的偏差会传到每一轮，第~\ref{sec:tax-failures}~节所述的奖励破解（reward hacking）风险也随之增大。
+\end{itemize}
+
+\paragraph{两点贯穿性的观察}
+第一，\emph{基础设施与信用分配正在融合}：树式 rollout、兄弟基线与沙箱快照/分叉运行时正在被协同设计~\citep{ji2025tree,bpo2026branching,deltabox2026,crab2026}，于是 rollout 分支\emph{本身就是}信用估计器，过去代价过高，如今已经可行。第二，\emph{等算力（matched compute）比较很少见}：多数家族是在与 GRPO 轨迹数相等的条件下评测的，而不是在 token 数、工具调用数或有效样本量相等的条件下；而首个重放审计发现，常见信用信号并不比打乱后的对照更好（第~\ref{sec:tax-failures}~节）。信用质量本身很少被独立于下游准确率直接测量，相应的测量协议也仍然缺位。

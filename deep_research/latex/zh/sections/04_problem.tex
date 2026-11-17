@@ -1,0 +1,74 @@
+\section{信用分配问题}\label{sec:problem}
+
+\citet{pignatelli2024survey} 把信用（credit）定义为：在有限经验下估计出的、某个动作对结果的影响。本节先回顾经典方法，再说明 LLM 智能体（agent）为何是这些方法的难题，最后给出只用结果奖励（outcome-only reward）在统计上的代价。
+
+\subsection{经典工具箱及其在 LLM 上的对应}
+
+\paragraph{自举（TD、资格迹、GAE）}
+TD 学习把 $V(s_t)$ 向 $r_t+\gamma V(s_{t+1})$ 推进，因此每次更新奖励只向前回传一步~\citep{sutton1988learning,sutton2018reinforcement}；资格迹（eligibility trace）则以权重 $\lambda$ 混合多个 $n$ 步回报。PPO 系 RLHF 中使用的广义优势估计（generalized advantage estimation, GAE）~\citep{schulman2015high} 为
+\begin{equation}
+  \hat A_t=\sum_{l=0}^{T-t-1}(\gamma\lambda)^l\,\delta_{t+l},\qquad
+  \delta_t=r_t+\gamma V(s_{t+1})-V(s_t).
+  \label{eq:gae}
+\end{equation}
+$\lambda\to 0$ 时，估计完全信任 critic（方差低，但受价值误差影响而有偏）；$\lambda\to1$ 时，它退化为 Monte-Carlo 回报（无偏，但方差高）。在 LLM 中，状态是前缀、动作是 token，horizon（时域）$T$ 动辄上千，$\lambda<1$ 会让终端奖励在传到早期 token 之前就大幅衰减（即第~\ref{sec:background}~节所述的奖励信号衰减）。若取 $\gamma=\lambda=1$ 且不用 critic，就得到“每个 token 都拿最终奖励”，这正是 REINFORCE 和 GRPO 一类方法的做法~\citep{hu2025reinforce,shao2024deepseekmath}。
+
+\paragraph{回报分解：RUDDER}
+RUDDER 训练一个序列模型来预测最终回报，并把奖励重新分配到该预测发生变化的步骤上~\citep{arjonamedina2019rudder}。在 LLM 中，基于前缀学到的回报预测器相当于一个隐式过程奖励模型，隐式 PRM 方法也以类似方式重新分配结果奖励~\citep{cui2025process}\unverified。学到的分解器本身也可能被钻空子（gamed）。
+
+\paragraph{事后信用分配（Hindsight Credit Assignment）}
+HCA 给过去某个动作打分的依据是：已知结果之后，该动作的可能性提高了多少，即比较 $h(a\mid s,\text{outcome})$ 与 $\pi(a\mid s)$~\citep{harutyunyan2019hindsight}。LLM 中的近似做法是逐步或逐轮地以最终答案为条件。
+
+\paragraph{反事实与 Shapley 信用}
+COMA 给每个智能体的信用是联合动作价值与一个基线之差，该基线只对这一个智能体的动作做边缘化~\citep{foerster2018counterfactual}；基于 Shapley 的信用则把某个智能体在各种联盟中的边际贡献取平均~\citep{wang2020shapley}。若把每一轮（turn）看作一个“智能体”，反事实（counterfactual）就意味着固定其他轮、只重新采样这一轮。这种做法有原则性，精确的 Shapley 值之和甚至恰好等于结果，但精确 Shapley 的计算量随轮数指数增长。
+
+\subsection{为什么多轮工具调用是难题}
+
+\citet{pignatelli2024survey} 指出了三类困难，对使用工具的智能体而言都很突出：
+\begin{itemize}
+  \item \textbf{延迟效应。}奖励要在多轮之后才到来，而决定性事件往往只是某一次工具调用，或对某次工具结果的某一次解读。
+  \item \textbf{路径置换（transposition）。}许多不同的工具调用序列都能得到同一个正确数值，因此仅凭结果很难判断是哪条路径、或路径上的哪一步起了作用。
+  \item \textbf{动作影响小。}大多数 token 近乎确定（格式、样板代码），只有极少数“分叉”（forking）token 决定结果~\citep{wang2025beyond}。
+\end{itemize}
+工具调用还带来两个额外问题：工具观测是离策略（off-policy）上下文，在损失中被屏蔽，却影响之后的每个 token；有状态的环境也让“回到某个中间状态换一种做法”变得困难（第~\ref{sec:agentic}~节）。
+
+\paragraph{粒度}
+接受信用的单元可以选在多个层级上（表~\ref{tab:granularity}）；\citet{zhang2026from} 对比了推理 RL（一条思维链，500 到 30K+ token）与智能体 RL（100+ 轮、100K--1M token、随机且部分可观测）。
+
+\begin{table}[t]
+\centering\small
+\caption{LLM 智能体中信用分配的粒度。}
+\label{tab:granularity}
+\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+层级 & 接受信用的单元 & 代表方法 \\
+\midrule
+Token & 每个生成的 token & PPO+GAE~\citep{schulman2015high}、VAPO~\citep{yue2025vapo}、VinePPO~\citep{kazemnejad2024vineppo}\unverified、分叉 token~\citep{wang2025beyond} \\
+片段（Segment） & 思维链中在选定位置切出的一段 & SPO~\citep{guo2025segment}\unverified \\
+轮 / 步 & 一个助手轮或一次工具调用 & MT-GRPO~\citep{wei2025reinforcing}\unverified、GiGPO~\citep{feng2025group}、TRACE~\citep{trace2026turn} \\
+轨迹 & 整个回复或整个 episode & GRPO~\citep{shao2024deepseekmath}、DAPO~\citep{yu2025dapo} \\
+多智能体 & 团队中的一个智能体或角色 & COMA~\citep{foerster2018counterfactual}、Dr.\,MAS~\citep{feng2026dr}\unverified \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{只用结果奖励的代价}
+
+GRPO 把 $\hat A_i=(r_i-\bar r)/\mathrm{std}(r)$ 赋给回复 $i$ 的\emph{每一个} token（式~\ref{eq:grpo-adv}）。这带来四方面代价。
+
+\paragraph{方差随长度增长}
+以下是一个常见的启发式论证，而非实证结果：REINFORCE 梯度 $g=\hat A\sum_{t=1}^{T}\nabla\log\pi(a_t\mid s_t)$ 是 $T$ 个零均值得分项之和，因此 $\mathrm{Var}(g)$ 大致随 $T$ 线性增长；而有用信号只来自 $k$ 个决定性 token，不随 $T$ 增长。单样本信噪比约为 $O(k/\sqrt{T})$，所以 episode 越长，所需样本按比例越多。
+
+\paragraph{稀释}
+成功轨迹（trajectory）中的一次无用调用会被强化，失败轨迹中的一个好步骤会被惩罚；正确的归因只能靠统计慢慢浮现，当步骤之间相关时（好的规划通常伴随好的执行）就更慢。
+
+\paragraph{零方差组}
+设奖励为二值、成功概率为 $p$、组大小为 $G$。若一个组内奖励全部相同，其优势（advantage）为零，不贡献任何梯度。这种情况发生的概率为
+\begin{equation}
+  P_{\text{zero}}=p^{G}+(1-p)^{G}.
+  \label{eq:zerovar}
+\end{equation}
+当 $G=8$、$p=0.9$ 时，$P_{\text{zero}}\approx0.43$。DAPO 的动态采样会丢弃这些零方差组（zero-variance group）并重新采样直到填满 batch~\citep{yu2025dapo}，以额外的 rollout 为代价恢复 batch 大小。
+
+\paragraph{修补会引入偏差}
+每种常见补救都是用某种特定偏差换取方差下降。长度归一化与组内标准差归一化会使哪些序列、哪些 prompt 获得梯度产生偏向~\citep{liu2025understanding}；prompt 级归一化有偏~\citep{hu2025reinforce}；学到的 critic 引入价值误差~\citep{yuan2025whats}；学到的 PRM 则引入一个可被钻空子的目标（第~\ref{sec:tax-prm}~节）。因此，评价一种信用分配方法，不能只看它是否降低了方差，还要看它引入了哪种偏差、需要多少额外算力。
