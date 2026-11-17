@@ -74,7 +74,7 @@ Appendix: paper list, glossary
 1. 检查 research_notes 下 01–05 是否齐全；缺的话只补缺的那一份（不要重做已有的）。
 2. 按章节顺序写 `latex/en/sections/NN_*.tex`，每章写完：编译通过 → 更新本表 → commit + push。
 3. 英文全部完成后，逐章翻译到 `latex/zh/sections/`，同样逐章提交。
-4. 全部完成后，删除 7:05 的定时续写任务（trigger_id `trig_01AfysA5nFvCS5oMR3NUdcYx`，北京时间 2026-11-18 07:05 触发；如果还没触发）。
+4. 全部完成后，删除 7:05 的定时续写任务（trigger_id `trig_01AfysA5nFvCS5oMR3NUdcYx`，巴黎时间 2026-11-18 07:05 触发；如果还没触发）。
 
 ## 写作约定（续写者沿用）
 - 每章一个文件 `latex/en/sections/NN_*.tex`；每章的 BibTeX 放 `latex/en/bib/sNN.bib`；`bash latex/en/build.sh` 合并 bib 并编译。
