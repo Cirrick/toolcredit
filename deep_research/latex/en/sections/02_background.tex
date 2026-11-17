@@ -1,1 +1,63 @@
-% TODO: 02_background (not yet written)
+\section{Background: From RLHF to RLVR and the GRPO Family}\label{sec:background}
+
+This section fixes notation and recalls the algorithms on which nearly all LLM-agent training is built. We read them through one question: \emph{at what granularity does each method assign credit?} The short answer is that the field moved from a learned per-token signal (a critic) to a per-response scalar shared by every token, and that the many 2025--2026 refinements of the latter left this property intact.
+
+\paragraph{RLHF with a critic}
+Classic RLHF \citep{christiano2017deep,ouyang2022training} fits a reward model (RM) to human preference comparisons and optimizes the policy against it with PPO \citep{schulman2017proximal}, plus a per-token KL penalty toward the SFT model. The RM emits a single scalar at the end of a response; it is the PPO critic, through generalized advantage estimation (GAE; \citealp{schulman2015high}), that spreads this scalar over tokens: $\hat A_t=\sum_{l\ge 0}(\gamma\lambda)^l\delta_{t+l}$ with $\delta_t=r_t+\gamma V(s_{t+1})-V(s_t)$. This is genuine token-level credit, but it keeps four large models in memory (policy, reference, RM, critic) and requires training the critic. DPO \citep{rafailov2023direct} removes the RM and the sampling loop altogether at the price of being offline; a careful comparison nonetheless found well-tuned PPO ahead of DPO, especially on code \citep{xu2024dpo}\unverified.
+
+\paragraph{Why critic-free methods took over}
+For long chain-of-thought (CoT) reasoning the critic turned out to be not just expensive but \emph{wrong}. VC-PPO \citep{yuan2025whats} identifies two failure modes: \emph{value initialization bias}, and \emph{reward signal decay}, \ie with $\lambda<1$ a terminal reward is attenuated geometrically over thousands of tokens and barely reaches the early ones. Its authors observe that this failure ``has led some to abandon PPO in favor of GRPO''. VAPO \citep{yue2025vapo} names value-model bias, heterogeneous sequence lengths and reward sparsity as the obstacles, and reports vanilla PPO at roughly 5 points on AIME24 versus 60.4 for VAPO (Qwen2.5-32B base). Value-based methods can thus be repaired (value pretraining, decoupled and length-adaptive GAE), but the mainstream took the other branch: drop the critic and accept an unbiased, high-variance, \emph{uniform} sequence-level signal. RLOO \citep{ahmadian2024back} argued that, starting from a strong SFT policy, RLHF is effectively a bandit whose single action is the whole response, and used the mean reward of the other $k-1$ samples as baseline\unverified; REINFORCE++ \citep{hu2025reinforce} is PPO with the critic removed, $\gamma=\lambda=1$, and global-batch normalization as the baseline.
+
+\paragraph{RLVR and GRPO}
+RL with verifiable rewards (RLVR; the term was popularized by \citealp{lambert2024tulu}) replaces the RM with a programmatic checker, such as exact match of a math answer or a unit-test suite, that returns $r=1$ if it accepts the completion and $0$ otherwise. GRPO \citep{shao2024deepseekmath}, the optimizer behind DeepSeek-R1 \citep{deepseekai2025deepseek} (rule-based accuracy and format rewards, no neural RM), samples $G$ responses $o_1,\dots,o_G$ for a prompt $q$ and maximizes
+\begin{equation}\label{eq:grpo}
+\mathcal{J}(\theta)=\mathbb{E}\Bigg[\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\Big(\min\big(\rho_{i,t}\hat A_{i,t},\,\mathrm{clip}(\rho_{i,t},1-\epsilon,1+\epsilon)\,\hat A_{i,t}\big)-\beta\,\mathbb{D}_{\mathrm{KL}}\big[\pi_\theta\,\|\,\pi_{\mathrm{ref}}\big]\Big)\Bigg],
+\end{equation}
+where $\rho_{i,t}=\pi_\theta(o_{i,t}\mid q,o_{i,<t})/\pi_{\theta_{\mathrm{old}}}(o_{i,t}\mid q,o_{i,<t})$ and, under outcome supervision,
+\begin{equation}\label{eq:grpo-adv}
+\hat A_{i,t}\;=\;\frac{r_i-\mathrm{mean}(r_1,\dots,r_G)}{\mathrm{std}(r_1,\dots,r_G)}\qquad\text{for every } t=1,\dots,|o_i|.
+\end{equation}
+The group mean takes the place of the critic. The property that matters for this survey is visible in the subscript: $\hat A_{i,t}$ depends on $(q,i)$ but not on $t$. Every token of $o_i$, whether it belongs to the decisive step, a wasted tool call or formatting boilerplate, is pushed by the same amount. A correct response that contains a harmful step reinforces that step; a failed response that contains an excellent early step penalizes it. Credit is disentangled only statistically, across many samples in which the decisive step varies independently of the rest. (DeepSeekMath also defines a process-supervision variant in which $\hat A_{i,t}$ sums normalized step rewards from $t$ onward\unverified; R1-style training does not use it.) Outcome rewards add a second, structural loss: if all $G$ rewards in a group are equal, \eqref{eq:grpo-adv} is zero and the prompt yields no gradient. With binary rewards and success probability $p$ this happens with probability $p^G+(1-p)^G$, about 43\% of prompts for $G=8$ and $p=0.9$.
+
+\paragraph{The 2025--2026 variants}
+Table~\ref{tab:grpo-variants} groups the main variants by the part of the objective they touch: (a) the advantage estimator, (b) how per-token losses are aggregated and weighted, and (c) the trust region or off-policy correction. Dr.~GRPO \citep{liu2025understanding} shows that the two normalizers in \eqref{eq:grpo}--\eqref{eq:grpo-adv} are themselves biased: $1/|o_i|$ inflates the length of incorrect responses, and $1/\mathrm{std}$ up-weights prompts that are nearly all-correct or all-wrong. DAPO \citep{yu2025dapo} bundles four fixes and reaches 50 on AIME24 with Qwen2.5-32B in half the steps of the R1-Zero-Qwen-32B recipe. GSPO \citep{zheng2025group} goes the other way and makes even the importance ratio sequence-level, on the argument that the optimization unit should match the unit that receives reward. The pattern in the right-hand column is the point: only the value-based revivals (VC-PPO, VAPO) change \emph{which} tokens receive credit, and they do so by reinstating a learned critic.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Main GRPO-family variants (2025--2026). ``Same $\hat A_i$'' means every token of response $i$ receives one shared advantage.}
+\label{tab:grpo-variants}
+\begin{tabularx}{\textwidth}{@{}l X l@{}}
+\toprule
+Method & Mechanism (one line) & Who gets credit \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{(a) Advantage estimator}}\\
+RLOO \citep{ahmadian2024back} & Baseline for sample $i$ = mean reward of the other $k-1$ samples & same $\hat A_i$ \\
+REINFORCE++ \citep{hu2025reinforce} & No critic; normalize advantages over the global batch, not per group & same $\hat A_i$ \\
+Dr.~GRPO \citep{liu2025understanding} & Drop the $1/\mathrm{std}$ (difficulty) normalizer & same $\hat A_i$ \\
+DAPO dyn.\ sampling \citep{yu2025dapo} & Discard all-0/all-1 groups; oversample until the batch is full & same $\hat A_i$ \\
+VC-PPO \citep{yuan2025whats} & Value pretraining; decoupled GAE ($\lambda_{\text{critic}}=1$, separate actor $\lambda$) & per token (critic) \\
+VAPO \citep{yue2025vapo} & VC-PPO plus length-adaptive GAE and DAPO tricks & per token (critic) \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{(b) Loss aggregation / weighting}}\\
+DAPO token-level loss & Average over all tokens in the batch, so long responses are not down-weighted & same $\hat A_i$, reweighted \\
+Dr.~GRPO & Remove the $1/|o_i|$ length normalizer & same $\hat A_i$, reweighted \\
+ScaleRL \citep{khatri2025art} & Prompt-level loss averaging; batch-level advantage normalization & same $\hat A_i$ \\
+\midrule
+\multicolumn{3}{@{}l}{\emph{(c) Trust region / off-policy correction}}\\
+DAPO Clip-Higher & Decoupled $\epsilon_{\text{low}}<\epsilon_{\text{high}}$ to counter entropy collapse & same $\hat A_i$ \\
+CISPO \citep{minimax2025minimax} & Clip the stop-gradient IS weight, not the update; every token keeps a gradient & same $\hat A_i$ \\
+GSPO \citep{zheng2025group} & Length-normalized sequence-level ratio and clipping & same $\hat A_i$ \\
+SAPO \citep{gao2025soft} & Temperature-controlled soft gate instead of a hard clip; asymmetric for negatives & same $\hat A_i$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{What scaling studies say}
+ScaleRL \citep{khatri2025art} spent more than 400k GPU-hours fitting sigmoidal compute--performance curves that separate an \emph{asymptote} from an \emph{efficiency} term. Its recipe combines PipelineRL-style asynchrony, forced length interruptions, the CISPO loss, prompt-level loss averaging, batch-level advantage normalization and FP32 logits. Its central finding is that most knobs (normalization, aggregation, curriculum) shift efficiency rather than the asymptote; the loss type does matter, with CISPO and GSPO above DAPO on the asymptote and CISPO the most robust. We read this as follows: refinements of \emph{how} a uniform signal is optimized change how fast one reaches the ceiling, not the ceiling itself. The information content of the per-response signal, which is what credit assignment changes, is the lever these studies did not pull.
+
+\paragraph{Critiques of RLVR}
+Three lines of evidence suggest that ``reward went up'' is weak evidence that credit went to the right behavior. \citet{yue2025does} find that RLVR models win pass@$k$ at small $k$ but lose to their base models at large $k$, \ie RLVR mostly reweights solutions already in the base model's support (ProRL \citep{liu2025prorl}\unverified{} argues that prolonged, KL-controlled training can push past this boundary). \citet{cui2025entropy} show that without intervention entropy is traded for reward along $R=-a\,e^{H}+b$, driven by the covariance between a token's log-probability and its advantage; relatedly, restricting gradients to the roughly 20\% of high-entropy ``forking'' tokens is reported to match full updates \citep{wang2025beyond}\unverified. Finally, \citet{shao2025spurious} obtain +21.4 points on MATH-500 for Qwen2.5-Math-7B with \emph{random} rewards (versus +29.1 with ground truth), an effect that does not transfer to Llama3 or OLMo2 and disappears when clipping is disabled. Two lessons follow: a minority of tokens carries most of the useful signal, yet uniform broadcast spends gradient equally on all; and any credit-assignment claim evaluated on a single model family needs random-reward and cross-family controls.
+
+\paragraph{Bridge to agents}
+Everything above treats the response as one action. In a multi-turn agent the ``response'' is an interleaving of model turns and tool observations, the decisive event is often a single tool call or the interpretation of a single tool result, and \eqref{eq:grpo-adv} assigns the final outcome to every turn alike. The variance and dilution problems therefore grow with the number of turns, while the stability toolkit of Table~\ref{tab:grpo-variants} still leaves untouched the question of which turn deserves the credit. Section~\ref{sec:agentic} describes this setting.
