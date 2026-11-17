@@ -1,1 +1,47 @@
-% TODO: 08_toolcredit (not yet written)
+\section{Lessons from a Controlled Study of Turn-Level Credit (ToolCredit)}\label{sec:toolcredit}
+
+Credit-assignment methods are usually evaluated by their own authors, against a baseline that receives less tuning and, often, less rollout compute. This section reports what happened when turn-level credit was tested under a deliberately strict protocol in our controlled study, ToolCredit. Most of the results are null, and we report them as nulls.
+
+\paragraph{Setup}
+Tasks are competition-style math problems solved with a sandboxed Python interpreter (network disabled, resource-limited), with at most four tool calls and a 3{,}072-token budget per episode, run in veRL's multi-turn agent loop \citep{sheng2025hybridflow}. The policy is Qwen3-1.7B \citep{yang2025qwen3} after a LoRA \citep{hu2022lora} SFT cold start on 6{,}056 rejection-sampled tool-use traces distilled from Qwen3-8B. The cold start was needed because the raw model lost 13.95\,pt when given the tool. Training uses 5{,}403 MATH Level~3--5 problems that passed a contamination check, on a single GH200 GPU. The baseline E3 is trajectory-level GRPO \citep{shao2024deepseekmath} (64 prompts $\times$ 8 rollouts, 200 steps, answer-plus-format reward), which broadcasts one outcome advantage to every turn. Every arm starts from the same checkpoint and changes one component, which we checked by diffing the resolved configs. Endpoints are greedy pass@1 on a fixed set, FULL760 (MATH500, 200 GSM8K, AIME 2024/2025), with paired, source-stratified bootstrap 95\% CIs (10k resamples). The decision rule for reading each arm (cases A/B/C below) was pre-registered before evaluation. Every arm uses a single seed.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Arms of the ToolCredit study. Accuracy is greedy pass@1 on FULL760, followed by the paired $\Delta$ vs.\ E3 in points with its 95\% CI. ``F100'' marks the 100-problem MATH500 training-time panel, where FULL760 was not run. ``4-call'' is the share of FULL760 trajectories that use all four tool calls.}
+\label{tab:toolcredit}
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabularx}{\linewidth}{@{}l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
+\toprule
+Arm & What changed & Accuracy & Key behavioral effect & Verdict \\
+\midrule
+E3 & Trajectory-level GRPO & .733 & 0.89 calls; 4-call 1.3\% & Reference \\
+E4-A & + execution bonus & F100 .77 (E3 .76) & More calls and reward-hacking candidates & No stable gain; reward exploitation \\
+E4-B & + exec bonus and budget penalty & F100 .76 & Penalty only weakly curbs redundant calls & No stable gain \\
+E5-v1 & $A_t{=}A_{\text{traj}}{+}0.5(s_t{-}\bar s_t)$, non-conservative & .722; $-1.05$ [$-3.68$, $+1.58$] & 4-call 92.9\%; truncation 100\% & Faster early, no endpoint gain; over-calling \\
+E5-v2 & Zero-sum, token-weighted, zero-variance-gated & .741; $+0.79$ [$-1.84$, $+3.42$] & 4-call 0.8\%; 0.60 calls & Case A: no detectable gain \\
+E6 & Tool-output tokens not masked (80 steps) & F100: no collapse & 4.66\% of loss tokens are tool returns & No catastrophic degradation \\
+E7-eq & DAPO filtering, step 95 (E3's rollout budget) & .729; $-0.39$ [$-2.89$, $+2.11$] & 0.63 calls & Case C: no gain per rollout \\
+E7-200 & Same, step 200 ($2.53\times$ rollouts) & .784; $+5.13$ [$+2.63$, $+7.63$] & Gains on MATH L5, AIME & Not attributable to filtering \\
+E3-NoTool & Tools removed & .724; $-0.92$ [$-3.55$, $+1.71$] & --- & Case B: tools add no accuracy \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Lesson 1: credit design is reward design}
+In E5-v1, $s_t{=}1$ marks a tool call that executes successfully and whose result is adopted in later text. The bonus term is centered on the group mean at the same turn position, so it does not sum to zero within a trajectory. In effect it is an implicit dense reward. At step 200 the net correction per trajectory rose with the number of calls ($-0.41$ with no calls, $+0.01$ with four), and in zero-variance groups (48\% of groups at that step) the correction was the only source of gradient. The policy learned exactly what the signal paid for: on FULL760 the 4-call rate went from 1.3\% to 92.9\% (97.2\% when sampled), and repeated code went from 2.9\% to 92.4\%. On F100, early learning was faster (AUC over steps 0--100 +3\,pt), but there was no endpoint gain. The explicit execution bonus of E4 was exploited the same way. A credit signal that is not conservative is a reward, and an optimizer will game it like any other reward.
+
+\paragraph{Lesson 2: conservation removes the pathology, but short horizons leave little to fix}
+E5-v2 changes only the correction term. It is centered on the trajectory's own token-weighted mean, so it sums to zero within each trajectory (residual ${\le}1.1{\times}10^{-13}$), and it is not applied in groups whose outcomes have zero variance. Over-calling disappeared (4-call 0.8\%, truncation 8.7\%), which shows that both the drift and the early speed-up of v1 came from the implicit reward, not from turn-level credit itself. Accuracy, however, was indistinguishable from E3 ($+0.79$\,pt, CI crossing zero; early-AUC gain $+1.87$\,pt, below the pre-registered 2\,pt threshold). Redistribution can only act on trajectories with at least two distinguishable calls. With a budget of four calls, the policy quickly converged to one call or none (48.6\% of evaluation trajectories made no call), and the share of trajectories receiving any correction fell from 10.4\% to 4.2\%. The supported conclusion is ``no gain detected at this horizon and exposure'', not ``credit assignment does not help''.
+
+\paragraph{Lesson 3: compare at matched rollout compute}
+GRPO groups with identical scores contribute no gradient, and in E3 they averaged 44\% of groups. DAPO-style dynamic sampling \citep{yu2025dapo} drops these groups and resamples. Over training, the zero-variance share rose from 34.5\% to 61.4\%, and the average number of batches per step rose from 2.0 to 3.06. At E3's rollout budget (step 95) the endpoint was flat ($-0.39$\,pt), and plotted against cumulative rollouts its learning curve trailed E3's (AUC $-1.72$\,pt). The $+5.13$\,pt gain at step 200 cost $2.53\times$ the rollouts, and without a budget-matched E3 arm it cannot be attributed to filtering. A method that spends more rollouts per update should be plotted on both an update axis and a rollout axis.
+
+\paragraph{Lesson 4: tool value shrinks as the policy improves}
+The E3-NoTool arm splits the $+12.76$\,pt gain from SFT to E3 into three parts. 6.05\,pt comes from no longer being hurt by the tool, 4.74\,pt is a genuine reasoning gain (CI $[+2.11, +7.50]$), and only 1.97\,pt is the marginal value of the tool, with a CI that crosses zero. The tool's net effect narrowed monotonically ($-13.95 \to -6.05 \to -1.97$\,pt from raw to SFT to E3) without ever becoming clearly positive, and it helped only on MATH Level~4/5 ($+7.03$/$+2.99$\,pt). When a single call is optional and rarely decisive, there are few turns that deserve credit, which makes short-horizon tool-use math a weak testbed for credit methods.
+
+\paragraph{Relation to external work}
+These lessons agree with ``Credit Without Ground Truth'' \citep{zhang2026credit}. That study trains seven pre-registered arms on ALFWorld with Qwen2.5-7B-Instruct and finds that the differences between credit rules mostly reflect training dose. Sparse credit discards samples, so the number of optimizer steps varies widely, and the authors argue that rules must be compared at matched effective sample size. In their replay audit, LLM-judge scores, outcome-conditioned log-probability ratios and policy confidence do no better than a marginal-matched shuffled control\unverified. The agreement corroborates our lessons but also reduces their novelty: the dose confound is already public. Lesson~3 also applies to Memory-R2 \citep{yan2026memory}, whose LoGo-GRPO adds local rerollouts but, as far as we could verify, is not compared against GRPO given the same total rollouts\unverified. Three things remain distinctive about ToolCredit: a math-plus-interpreter setting rather than embodied text games, a documented over-calling pathology together with its counterfactual conservation fix, and a matched-compute protocol with update and rollout axes, frozen evaluation, and pre-registered readings. To become a paper it would need a horizon sweep, a stateful environment where early calls change what later calls can do (so exposure does not decay), more seeds, and the missing budget-matched baseline.
+
+These requirements lead directly to the research agenda in Sec.~\ref{sec:agenda}.
