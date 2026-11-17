@@ -3,7 +3,7 @@
 我们用一个问题来审视几乎所有 LLM 智能体训练背后的算法：\emph{每种方法在什么粒度上分配信用？}该领域从一个学出来的逐 token 信号（critic）走向了一个由所有 token 共享的逐回复标量，而 2025--2026 年的各种改进都没有改变这一性质。
 
 \paragraph{带 critic 的 RLHF}
-经典 RLHF \citep{christiano2017deep,ouyang2022training} 在人类偏好上拟合一个奖励模型（reward model，RM），再用 PPO \citep{schulman2017proximal} 加逐 token 的 KL 惩罚，针对它优化策略（policy）。RM 对每条回复输出一个标量；PPO 的 critic（价值模型）通过广义优势估计（generalized advantage estimation，GAE；\citealp{schulman2015high}；见第~\ref{sec:problem}~节式~\ref{eq:gae}）把它分摊到各个 token 上。这是真正的 token 级信用，但需要在显存中同时放四个模型（策略、参考模型、RM、critic），还要训练 critic。DPO \citep{rafailov2023direct} 去掉了 RM 和采样循环，代价是变成离线方法；不过一项细致的比较发现，调好的 PPO 仍优于 DPO，在代码任务上尤其明显 \citep{xu2024dpo}\unverified。
+经典 RLHF \citep{christiano2017deep,ouyang2022training} 在人类偏好上拟合一个奖励模型（reward model，RM），再用 PPO \citep{schulman2017proximal} 加逐 token 的 KL 惩罚，针对它优化策略（policy）。RM 对每条回复输出一个标量；PPO 的 critic（价值模型）通过广义优势估计（generalized advantage estimation，GAE；\citealp{schulman2015high}；见第~\ref{sec:problem}~节式~(\ref{eq:gae})）把它分摊到各个 token 上。这是真正的 token 级信用，但需要在显存中同时放四个模型（策略、参考模型、RM、critic），还要训练 critic。DPO \citep{rafailov2023direct} 去掉了 RM 和采样循环，代价是变成离线方法；不过一项细致的比较发现，调好的 PPO 仍优于 DPO，在代码任务上尤其明显 \citep{xu2024dpo}\unverified。
 
 \paragraph{为什么无 critic 方法占了上风}
 对于长思维链（chain-of-thought，CoT）推理，critic 不仅昂贵，而且\emph{不准}。VC-PPO \citep{yuan2025whats} 指出了\emph{价值初始化偏差}（value-initialization bias）和\emph{奖励信号衰减}（reward-signal decay）：当 $\lambda<1$ 时，终局奖励在数千个 token 上按几何级数衰减，几乎传不到前面的 token。VAPO \citep{yue2025vapo} 报告，原始 PPO 在 AIME24 上约为 5 分，而 VAPO 为 60.4 分（Qwen2.5-32B base）。可见基于价值的方法是可以修好的，但主流走了另一条路：去掉 critic，接受一个无偏、高方差、\emph{统一}的序列级信号。RLOO \citep{ahmadian2024back} 认为，从一个强 SFT 策略出发，RLHF 实际上是一个 bandit，其唯一的动作就是整条回复\unverified{}（表~\ref{tab:grpo-variants}，(a) 行）。
@@ -17,10 +17,10 @@
 \begin{equation}\label{eq:grpo-adv}
 \hat A_{i,t}\;=\;\frac{r_i-\mathrm{mean}(r_1,\dots,r_G)}{\mathrm{std}(r_1,\dots,r_G)}\qquad\text{for every } t=1,\dots,|o_i|.
 \end{equation}
-组内均值取代了 critic。这里关键的性质从下标就能看出：$\hat A_{i,t}$ 依赖 $(q,i)$，却不依赖 $t$。$o_i$ 中的每个 token，无论属于决定性的那一步、一次白费的工具调用，还是格式套话，都被推动同样的幅度。信用只能在统计意义上被区分开：依靠大量样本，其中决定性步骤与其余部分独立变化。（DeepSeekMath 还定义了一个过程监督变体，把从 $t$ 起的归一化步骤奖励累加起来\unverified；R1 式训练并不使用它。）结果奖励还带来第二种结构性损失：如果一组的 $G$ 个奖励全部相等，优势就为零，不产生任何梯度（式~\ref{eq:zerovar}）。
+组内均值取代了 critic。这里关键的性质从下标就能看出：$\hat A_{i,t}$ 依赖 $(q,i)$，却不依赖 $t$。$o_i$ 中的每个 token，无论属于决定性的那一步、一次白费的工具调用，还是格式套话，都被推动同样的幅度。信用只能在统计意义上被区分开：依靠大量样本，其中决定性步骤与其余部分独立变化。（DeepSeekMath 还定义了一个过程监督变体，把从 $t$ 起的归一化步骤奖励累加起来\unverified；R1 式训练并不使用它。）结果奖励还带来第二种结构性损失：如果一组的 $G$ 个奖励全部相等，优势就为零，不产生任何梯度（式~(\ref{eq:zerovar})）。
 
 \paragraph{2025--2026 年的变体}
-表~\ref{tab:grpo-variants} 按各变体改动目标函数的哪一部分对主要变体分组：(a) 优势估计器，(b) 逐 token 损失如何聚合，(c) 信赖域或离策略校正。Dr.~GRPO \citep{liu2025understanding} 表明，式~\ref{eq:grpo}--\ref{eq:grpo-adv} 中的两个归一化项都有偏：$1/|o_i|$ 会助长错误回复变长，$1/\mathrm{std}$ 会放大几乎全对或全错的提示的权重。DAPO \citep{yu2025dapo} 打包了四项修正，用 Qwen2.5-32B 在 AIME24 上达到 50 分，所用步数是 R1-Zero-Qwen-32B 配方的一半。GSPO \citep{zheng2025group} 连重要性比率也改成序列级，理由是优化的单位应当与获得奖励的单位一致。表中最右一列才是重点：只有基于价值的复兴方法（VC-PPO、VAPO）改变了\emph{哪些} token 获得信用，而它们靠的是重新引入 critic。
+表~\ref{tab:grpo-variants} 按各变体改动目标函数的哪一部分对主要变体分组：(a) 优势估计器，(b) 逐 token 损失如何聚合，(c) 信赖域或离策略校正。Dr.~GRPO \citep{liu2025understanding} 表明，式~(\ref{eq:grpo})--(\ref{eq:grpo-adv}) 中的两个归一化项都有偏：$1/|o_i|$ 会助长错误回复变长，$1/\mathrm{std}$ 会放大几乎全对或全错的提示的权重。DAPO \citep{yu2025dapo} 打包了四项修正，用 Qwen2.5-32B 在 AIME24 上达到 50 分，所用步数是 R1-Zero-Qwen-32B 配方的一半。GSPO \citep{zheng2025group} 连重要性比率也改成序列级，理由是优化的单位应当与获得奖励的单位一致。表中最右一列才是重点：只有基于价值的复兴方法（VC-PPO、VAPO）改变了\emph{哪些} token 获得信用，而它们靠的是重新引入 critic。
 
 \begin{table}[t]
 \centering
@@ -60,4 +60,4 @@ ScaleRL \citep{khatri2025art} 花费超过 40 万 GPU 小时拟合 S 形的算�
 三项发现表明，“奖励上升了”并不足以说明信用分给了正确的行为。\citet{yue2025does} 发现，RLVR 模型在小 $k$ 时 pass@$k$ 胜出，但在大 $k$ 时输给基座模型，即 RLVR 主要是在基座模型已有的解空间内重新加权（ProRL \citep{liu2025prorl}\unverified{} 认为，长时间、受 KL 约束的训练可以突破这一边界）。\citet{cui2025entropy} 表明，若不加干预，熵会按 $R=-a\,e^{H}+b$ 被换成奖励，其驱动力是 token 对数概率与其优势之间的协方差；与此相关，有报告称只更新约 20\% 的高熵“分叉”token 就能达到全量更新的效果（\citealp{wang2025beyond}\unverified；第~\ref{sec:tax-hindsight}~节）。最后，\citet{shao2025spurious} 用\emph{随机}奖励让 Qwen2.5-Math-7B 在 MATH-500 上提升了 21.4 分（使用真实奖励为 +29.1），这一效应不能迁移到 Llama3 或 OLMo2，且在关闭截断后消失。由此得到两点教训：少数 token 承载了大部分有用信号，而统一广播却把梯度平均花在所有 token 上；任何只在一个模型家族上评估的信用分配结论，都需要随机奖励对照和跨家族对照。
 
 \paragraph{通向智能体}
-以上内容都把回复视为一个动作。在多轮智能体中，“回复”由模型的轮与工具观测交替组成，决定性事件往往只是一次工具调用或对一条工具结果的解读，而式~\ref{eq:grpo-adv} 把最终结果平均分给每一轮。第~\ref{sec:agentic}~节介绍这一设置。
+以上内容都把回复视为一个动作。在多轮智能体中，“回复”由模型的轮与工具观测交替组成，决定性事件往往只是一次工具调用或对一条工具结果的解读，而式~(\ref{eq:grpo-adv}) 把最终结果平均分给每一轮。第~\ref{sec:agentic}~节介绍这一设置。

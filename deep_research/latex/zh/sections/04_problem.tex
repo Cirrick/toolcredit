@@ -54,7 +54,7 @@ Token & 每个生成的 token & PPO+GAE~\citep{schulman2015high}、VAPO~\citep{y
 
 \subsection{只用结果奖励的代价}
 
-GRPO 把 $\hat A_i=(r_i-\bar r)/\mathrm{std}(r)$ 赋给回复 $i$ 的\emph{每一个} token（式~\ref{eq:grpo-adv}）。这带来四方面代价。
+GRPO 把 $\hat A_i=(r_i-\bar r)/\mathrm{std}(r)$ 赋给回复 $i$ 的\emph{每一个} token（式~(\ref{eq:grpo-adv})）。这带来四方面代价。
 
 \paragraph{方差随长度增长}
 以下是一个常见的启发式论证，而非实证结果：REINFORCE 梯度 $g=\hat A\sum_{t=1}^{T}\nabla\log\pi(a_t\mid s_t)$ 是 $T$ 个零均值得分项之和，因此 $\mathrm{Var}(g)$ 大致随 $T$ 线性增长；而有用信号只来自 $k$ 个决定性 token，不随 $T$ 增长。单样本信噪比约为 $O(k/\sqrt{T})$，所以 episode 越长，所需样本按比例越多。

@@ -56,8 +56,8 @@ Appendix: paper list, glossary
 | LaTeX 骨架（en） | ✅ 可编译 |
 | 英文各章 §1–§9 | ✅ 全部完成并统稿（30 页，0 未定义引用，0 overfull） |
 | 英文编译 PDF | ✅ latex/en/main.pdf |
-| 中文翻译 | ⏳ 骨架 latex/zh 已建（共用 en/bib），分三组并行翻译 |
-| 中文编译 PDF | ☐ |
+| 中文翻译 | ✅ 全部完成 |
+| 中文编译 PDF | ✅ latex/zh/main.pdf（31 页） |
 
 ## 关键发现（写作时必须体现）
 - **近邻工作** "Credit Without Ground Truth"（Haiyue Zhang, arXiv 2608.19760, 2026-08）：ALFWorld + Qwen2.5-7B，
@@ -74,7 +74,7 @@ Appendix: paper list, glossary
 1. 检查 research_notes 下 01–05 是否齐全；缺的话只补缺的那一份（不要重做已有的）。
 2. 按章节顺序写 `latex/en/sections/NN_*.tex`，每章写完：编译通过 → 更新本表 → commit + push。
 3. 英文全部完成后，逐章翻译到 `latex/zh/sections/`，同样逐章提交。
-4. 全部完成后，删除 7:05 的定时续写任务（trigger_id `trig_01AfysA5nFvCS5oMR3NUdcYx`，巴黎时间 2026-11-18 07:05 触发；如果还没触发）。
+4. ✅ 全部完成（2026-11-17），7:05 定时续写任务已删除。
 
 ## 写作约定（续写者沿用）
 - 每章一个文件 `latex/en/sections/NN_*.tex`；每章的 BibTeX 放 `latex/en/bib/sNN.bib`；`bash latex/en/build.sh` 合并 bib 并编译。
