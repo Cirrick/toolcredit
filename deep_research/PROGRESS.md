@@ -50,11 +50,11 @@ Appendix: paper list, glossary
 | 章节规划 | ✅ |
 | 调研 01 LLM RL 基础 | ✅（约半数 arXiv ID 未直接核实，标 [M]） |
 | 调研 02 Agentic RL | ✅（arXiv 未直连，ID 经 awesome-list 交叉核对） |
-| 调研 03 信用分配方法 | ⏳ 进行中 |
+| 调研 03 信用分配方法 | ✅（部分 ID 仅 awesome-list 核对） |
 | 调研 04 Memory-R2 | ✅（未读到全文，只有检索摘要；LoGo-GRPO 公式/组大小/算力未知） |
 | 调研 05 趋势与可行性 | ✅ |
 | LaTeX 骨架（en） | ✅ 可编译 |
-| 英文各章 §1–§9 | ☐ |
+| 英文各章 §1–§9 | ⏳ §2–3、§6、§8 写作中；§4、§5、§7 写作中；§1、§9、摘要、附录待写（最后写） |
 | 英文编译 PDF | ☐ |
 | 中文翻译 | ☐ |
 | 中文编译 PDF | ☐ |
@@ -75,3 +75,9 @@ Appendix: paper list, glossary
 2. 按章节顺序写 `latex/en/sections/NN_*.tex`，每章写完：编译通过 → 更新本表 → commit + push。
 3. 英文全部完成后，逐章翻译到 `latex/zh/sections/`，同样逐章提交。
 4. 全部完成后，删除 7:05 的定时续写任务（trigger_id `trig_01AfysA5nFvCS5oMR3NUdcYx`，北京时间 2026-11-18 07:05 触发；如果还没触发）。
+
+## 写作约定（续写者沿用）
+- 每章一个文件 `latex/en/sections/NN_*.tex`；每章的 BibTeX 放 `latex/en/bib/sNN.bib`；`bash latex/en/build.sh` 合并 bib 并编译。
+- 引用 key：小写 一作姓+年份+标题首个实词（如 `shao2024deepseekmath`、`yan2026memory`=Memory-R2、`yan2025memory`=Memory-R1、`zhang2026credit`=2608.19760）。
+- 未能核实的数字/ID 后加 `\unverified`（渲染为橙色 †）。
+- 章节 label：sec:background, sec:agentic, sec:problem, sec:taxonomy, sec:memory, sec:comparison, sec:toolcredit, sec:agenda。
