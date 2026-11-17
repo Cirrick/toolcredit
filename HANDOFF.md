@@ -72,7 +72,7 @@
   manifest `5238d08e…b2e4d` 107 文件；15,200/15,200；复用 M7 157 + M8 30 个 canonical 产物并重验 hash）。
   **primary Δ = E3-NoTool − E3 = −0.92pt，CI [−3.55, +1.71] → 情形 B**。
   分解：SFT→E3 的 +12.76pt = 6.05（不再被工具拖累）+ 4.74（推理提升，[+2.11,+7.50]）+ 1.97（工具边际价值，跨 0）。
-  工具增益 raw −13.95 → SFT −6.05 → E3 −1.97pt；优势只在 MATH L4/L5（+7.03/+2.99pt）。
+  工具净增益（TIR − NoTool）raw −13.95 → SFT −6.05 → E3 +1.97pt（CI 跨 0）；优势只在 MATH L4/L5（+7.03/+2.99pt）。
   四个 notool 角色 `tool_tag_emitted` 全 0/760。训练侧零方差组 44.6%→56.3%（E3 26.6%）→ M10 动机。
   文档：`reports/02_main_results.md` M9 节、`01_tool_gain.md` M9 附录、technical report §12、README 总表、qa_log Q21。
   用户另行授权的 step-125 敏感性分析 `eval/runs/m9_step125_sensitivity_20260907_191332`（exploratory，不入协议）：
