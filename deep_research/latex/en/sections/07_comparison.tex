@@ -4,23 +4,23 @@ No family dominates. Each one buys better credit by assuming something about the
 
 \begin{table}[t]
 \centering\small
-\setlength{\tabcolsep}{3pt}
+\setlength{\tabcolsep}{2.5pt}
 \caption{Cross-family comparison. \textbf{Fork}: needs to reset or fork an intermediate state. \textbf{Rep}: needs states to recur across rollouts. \textbf{Verif}: needs a per-step verifier, PRM or judge. \textbf{Roll}: extra rollout cost. \textbf{Bias}/\textbf{Var}: bias and variance of the credit estimate. \textbf{Game}: risk that the policy games the signal. Y = yes, N = no, opt = optional; L/M/H = low/medium/high; ${\downarrow}$ = can lower the rollout cost at a fixed budget.}
 \label{tab:comparison}
-\begin{tabularx}{\textwidth}{@{}l c c c c c c c X@{}}
+\begin{tabularx}{\textwidth}{@{}l c c c c c c c >{\raggedright\arraybackslash}X@{}}
 \toprule
 Family & Fork & Rep & Verif & Roll & Bias & Var & Game & Best-fit setting \\
 \midrule
-(a) Learned / implicit PRM & N & N & Y & L & H & L & H & Reasoning; agents only as shaping on top of an outcome reward \\
-(a) Verifiable process reward & N & N & Y & L & L & L & M & Environments with a trustworthy per-turn oracle \\
-(b) MC vine / segment & Y & N & N & H & L & H & L & Short-horizon reasoning with a cheap prefix reset \\
-(b) Tree / branching & Y & N & N & L--M${\downarrow}$ & L & M & L & Search, TIR, snapshottable sandboxes \\
-(c) Anchor-state grouping & N & Y & N & L & L & M & L & Discrete, recurring states (ALFWorld, WebShop) \\
-(d) Gold-likelihood turn reward & N & N & N & L & M & L & M & Gold answer known at training time (math, QA) \\
-(d) Judge / rubric turn reward & N & N & Y & L & M & L & H & Subjective or unverifiable turns \\
-(d) Turn-level / privileged critic & N & N & opt & L & M & L & M & Training-only privileged information, long episodes \\
+(a) Learned/implicit PRM & N & N & Y & L & H & L & H & Reasoning; agents only as shaping on top of an outcome reward \\
+(a) Verifiable proc.\ reward & N & N & Y & L & L & L & M & Environments with a trustworthy per-turn oracle \\
+(b) MC vine/segment & Y & N & N & H & L & H & L & Short-horizon reasoning with a cheap prefix reset \\
+(b) Tree/branching & Y & N & N & L--M${\downarrow}$ & L & M & L & Search, TIR, snapshottable sandboxes \\
+(c) Anchor grouping & N & Y & N & L & L & M & L & Discrete, recurring states (ALFWorld, WebShop) \\
+(d) Gold-likelihood turn & N & N & N & L & M & L & M & Gold answer known at training time (math, QA) \\
+(d) Judge/rubric turn & N & N & Y & L & M & L & H & Subjective or unverifiable turns \\
+(d) Turn/privileged critic & N & N & opt & L & M & L & M & Training-only privileged information, long episodes \\
 (e) LLM hindsight critic & N & N & Y & L & M & M & M & No verifier; audit the critic \\
-(e) Counterfactual / Shapley & Y & N & N & H & L & H & L & Few segments; theory and small scale \\
+(e) Counterfactual/Shapley & Y & N & N & H & L & H & L & Few segments; theory and small scale \\
 (e) Key-token selection & N & N & N & L & M & M & L & Long chains of thought; combine with any family \\
 (f) Learned token critic & N & N & N & L & M & L & L & Long-CoT math, with value pretraining \\
 \bottomrule
@@ -32,7 +32,7 @@ Family & Fork & Rep & Verif & Roll & Bias & Var & Game & Best-fit setting \\
   \item \textbf{Stateless or prefix-replayable} (pure text, math with stateless Python calls). A state can be ``reset'' by replaying the token prefix, so branching from intermediate turns is cheap. Branching estimators (b) give unbiased turn values. If a gold answer exists, gold-likelihood turn rewards (d) cost one forward pass per turn. Key-token selection (e) is nearly free and can be added to either. Anchor grouping (c) helps little here, because exact states rarely recur.
   \item \textbf{Stateful but snapshottable} (SWE, terminal, web and memory sandboxes). Branching still works, provided snapshot fidelity holds~\citep{bpo2026branching}. Fork latency then limits training throughput~\citep{deltabox2026}. LoGo-GRPO's rerollouts from a shared memory state are an instance of this regime (Section~\ref{sec:memory}).
   \item \textbf{Non-resettable} (live web, real users, irreversible actions). Only methods that need no reset remain. Use turn-level or privileged critics (d, f) or hindsight critics (e). These signals have no ground truth, so audit them against replay where possible~\citep{zhang2026credit}.
-  \item \textbf{Horizon.} With a few turns, outcome-only GRPO already resolves much of the credit, and turn-level methods have little room to help. Dilution grows with the number of turns, so the case for denser credit gets stronger as the horizon lengthens. For the same reason, per-turn signals that can be gamed become more dangerous.
+  \item \textbf{Horizon.} With only a few turns, dilution is mild and turn-level methods have less room to help. Dilution grows with the number of turns, so the case for denser credit gets stronger as the horizon lengthens. For the same reason, per-turn signals that can be gamed become more dangerous.
   \item \textbf{Verifiable versus judged reward.} With a verifier, keep the outcome reward dominant and treat dense credit as shaping. With only a judge, the judge's bias reaches every turn, and the hacking risks of Section~\ref{sec:tax-failures} grow.
 \end{itemize}
 

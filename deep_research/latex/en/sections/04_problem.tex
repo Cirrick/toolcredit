@@ -4,7 +4,7 @@ An agent receives one number at the end of an episode (``the answer was right'')
 
 \subsection{The classical toolbox and how it maps to LLMs}
 
-\paragraph{Bootstrapping: TD, eligibility traces, GAE}
+\paragraph{Bootstrapping (TD, traces, GAE)}
 TD learning moves $V(s_t)$ towards $r_t+\gamma V(s_{t+1})$, so reward travels back one step per update through a learned estimate~\citep{sutton1988learning,sutton2018reinforcement}. Eligibility traces mix $n$-step returns with geometric weights $\lambda$. Generalized advantage estimation~\citep{schulman2015high} is the version used in PPO-based RLHF:
 \begin{equation}
   \hat A_t=\sum_{l=0}^{T-t-1}(\gamma\lambda)^l\,\delta_{t+l},\qquad
@@ -39,7 +39,7 @@ The unit that receives credit can be chosen at several levels (Table~\ref{tab:gr
 \centering\small
 \caption{Granularity of credit for LLM agents.}
 \label{tab:granularity}
-\begin{tabularx}{\textwidth}{@{}l X X@{}}
+\begin{tabularx}{\textwidth}{@{}l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
 \toprule
 Level & Unit that receives credit & Representative methods \\
 \midrule
