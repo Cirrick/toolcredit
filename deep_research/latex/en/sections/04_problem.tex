@@ -1,39 +1,39 @@
 \section{The Credit Assignment Problem}\label{sec:problem}
 
-An agent receives one number at the end of an episode (``the answer was right'') and has to work out which of its many earlier decisions caused it. That is the \emph{credit assignment} problem. \citet{pignatelli2024survey} define credit as the influence of an action on an outcome, estimated from limited experience. This section recalls the classical tools, explains why LLM agents are a hard case for them, and states the statistical cost of the outcome-only rewards that most agentic RL still uses.
+\citet{pignatelli2024survey} define credit as the influence of an action on an outcome, estimated from limited experience. This section recalls the classical tools, explains why LLM agents are a hard case for them, and states the statistical cost of outcome-only rewards.
 
 \subsection{The classical toolbox and how it maps to LLMs}
 
 \paragraph{Bootstrapping (TD, traces, GAE)}
-TD learning moves $V(s_t)$ towards $r_t+\gamma V(s_{t+1})$, so reward travels back one step per update through a learned estimate~\citep{sutton1988learning,sutton2018reinforcement}. Eligibility traces mix $n$-step returns with geometric weights $\lambda$. Generalized advantage estimation~\citep{schulman2015high} is the version used in PPO-based RLHF:
+TD learning moves $V(s_t)$ towards $r_t+\gamma V(s_{t+1})$, so reward travels back one step per update~\citep{sutton1988learning,sutton2018reinforcement}; eligibility traces mix $n$-step returns with weights $\lambda$. Generalized advantage estimation~\citep{schulman2015high}, used in PPO-based RLHF, is
 \begin{equation}
   \hat A_t=\sum_{l=0}^{T-t-1}(\gamma\lambda)^l\,\delta_{t+l},\qquad
   \delta_t=r_t+\gamma V(s_{t+1})-V(s_t).
   \label{eq:gae}
 \end{equation}
-With $\lambda\to 0$ the estimate trusts the critic (low variance, biased by value error). With $\lambda\to1$ it becomes the Monte-Carlo return (unbiased, high variance). For LLMs, states are prefixes and actions are tokens. With $T$ in the thousands and reward only at the end, $\lambda<1$ shrinks the terminal signal geometrically before it reaches early tokens. VC-PPO calls this \emph{reward signal decay} and adds \emph{value-initialization bias}~\citep{yuan2025whats}. Setting $\gamma=\lambda=1$ with no critic gives ``final reward for every token,'' which is what REINFORCE-style and GRPO-style methods do~\citep{hu2025reinforce,shao2024deepseekmath}.
+With $\lambda\to 0$ the estimate trusts the critic (low variance, biased by value error); with $\lambda\to1$ it becomes the Monte-Carlo return (unbiased, high variance). For LLMs, states are prefixes and actions are tokens, so the horizon $T$ runs into the thousands and $\lambda<1$ shrinks a terminal reward before it reaches early tokens (the reward-signal decay of Section~\ref{sec:background}). Setting $\gamma=\lambda=1$ with no critic gives ``final reward for every token'', which is what REINFORCE- and GRPO-style methods do~\citep{hu2025reinforce,shao2024deepseekmath}.
 
 \paragraph{Return decomposition: RUDDER}
 RUDDER trains a sequence model to predict the final return and redistributes reward to the steps where that prediction changes~\citep{arjonamedina2019rudder}. In LLMs, a learned return predictor over prefixes plays the role of an implicit process reward model, and implicit-PRM methods redistribute an outcome reward in a similar way~\citep{cui2025process}\unverified. The learned decomposer can itself be gamed.
 
 \paragraph{Hindsight Credit Assignment}
-HCA scores a past action by how much more likely it becomes once the outcome is known, \ie by comparing $h(a\mid s,\text{outcome})$ with $\pi(a\mid s)$~\citep{harutyunyan2019hindsight}. LLMs approximate this naturally: one can condition the model on the final answer and ask how its view of a step changes. The token action space is huge, so this is usually done per step or per turn.
+HCA scores a past action by how much more likely it becomes once the outcome is known, comparing $h(a\mid s,\text{outcome})$ with $\pi(a\mid s)$~\citep{harutyunyan2019hindsight}. LLMs approximate this by conditioning on the final answer, per step or per turn.
 
 \paragraph{Counterfactual and Shapley credit}
-COMA gives each agent the difference between the joint-action value and a baseline that marginalizes only that agent's action~\citep{foerster2018counterfactual}. Shapley-based credit averages an agent's marginal contribution over coalitions~\citep{wang2020shapley}. If each turn or tool call is treated as an ``agent,'' a counterfactual means re-sampling that turn while keeping the others fixed. This is principled, and exact Shapley values even sum to the outcome. The price is rollouts: exact Shapley is exponential in the number of turns.
+COMA gives each agent the difference between the joint-action value and a baseline that marginalizes only that agent's action~\citep{foerster2018counterfactual}; Shapley-based credit averages an agent's marginal contribution over coalitions~\citep{wang2020shapley}. Treating each turn as an ``agent'', a counterfactual means re-sampling that turn while keeping the others fixed. This is principled, and exact Shapley values even sum to the outcome, but exact Shapley is exponential in the number of turns.
 
 \subsection{Why multi-turn tool use is a hard case}
 
-\citet{pignatelli2024survey} name three difficulties. All three are severe for tool-using agents:
+\citet{pignatelli2024survey} name three difficulties, all severe for tool-using agents:
 \begin{itemize}
   \item \textbf{Delayed effects.} The reward arrives after many turns, and the decisive event is often one tool call or one reading of a tool result.
-  \item \textbf{Transpositions.} Many different tool-call sequences reach the same correct number. An outcome therefore says little about which path, or which step on it, was responsible.
-  \item \textbf{Low action influence.} Most tokens are close to deterministic (formatting, boilerplate code). A small minority of ``forking'' tokens decides the outcome~\citep{wang2025beyond}.
+  \item \textbf{Transpositions.} Many tool-call sequences reach the same correct number, so an outcome says little about which path, or which step on it, was responsible.
+  \item \textbf{Low action influence.} Most tokens are close to deterministic (formatting, boilerplate code); a small minority of ``forking'' tokens decides the outcome~\citep{wang2025beyond}.
 \end{itemize}
-Tool use adds two further problems. Tool observations are off-policy context: they are masked from the loss but still condition every later token. Stateful environments (file systems, kernels, web pages) also make it hard to return to an intermediate state and try something else.
+Tool use adds two problems: tool observations are off-policy context that is masked from the loss but conditions every later token, and stateful environments make it hard to return to an intermediate state and try something else (Section~\ref{sec:agentic}).
 
 \paragraph{Granularity}
-The unit that receives credit can be chosen at several levels (Table~\ref{tab:granularity}). The 2604.09459 survey uses a similar granularity axis~\citep{zhang2026from}. It describes reasoning RL as spreading credit over 500 to 30K+ tokens in one chain of thought, and agentic RL as covering 100+ turns (100K--1M tokens) with stochastic transitions and partial observability.
+The unit that receives credit can be chosen at several levels (Table~\ref{tab:granularity}); \citet{zhang2026from} contrast reasoning RL (500 to 30K+ tokens of one chain of thought) with agentic RL (100+ turns, 100K--1M tokens, stochastic and partially observed).
 
 \begin{table}[t]
 \centering\small
@@ -54,21 +54,21 @@ Multi-agent & one agent or role in a team & COMA~\citep{foerster2018counterfactu
 
 \subsection{What outcome-only rewards cost}
 
-GRPO assigns $\hat A_i=(r_i-\bar r)/\mathrm{std}(r)$ to \emph{every} token of response $i$~\citep{shao2024deepseekmath}. This causes four problems.
+GRPO assigns $\hat A_i=(r_i-\bar r)/\mathrm{std}(r)$ to \emph{every} token of response $i$ (Eq.~\ref{eq:grpo-adv}). This has four costs.
 
 \paragraph{Variance grows with length}
-The following is a standard heuristic argument, not an empirical result. The REINFORCE gradient $g=\hat A\sum_{t=1}^{T}\nabla\log\pi(a_t\mid s_t)$ sums $T$ score terms. Each has zero mean but nonzero variance, so $\mathrm{Var}(g)$ grows roughly linearly in $T$. The useful signal comes from the $k$ decisive tokens and does not grow with $T$. The per-sample signal-to-noise ratio is therefore about $O(k/\sqrt{T})$, and longer agent episodes need proportionally more samples.
+A standard heuristic argument, not an empirical result: the REINFORCE gradient $g=\hat A\sum_{t=1}^{T}\nabla\log\pi(a_t\mid s_t)$ sums $T$ zero-mean score terms, so $\mathrm{Var}(g)$ grows roughly linearly in $T$, while the useful signal comes from $k$ decisive tokens and does not grow with $T$. The per-sample signal-to-noise ratio is about $O(k/\sqrt{T})$, so longer episodes need proportionally more samples.
 
 \paragraph{Dilution}
-Every token receives the same scalar. In a successful trajectory, a wasted or wrong tool call is reinforced. In a failed trajectory, a good early step is penalized. The right attribution emerges only statistically, across trajectories in which the decisive step varies independently of the others. This is slow when steps are correlated, for example when a good plan usually comes with good execution.
+A wasted call in a successful trajectory is reinforced and a good step in a failed one is penalized; the right attribution emerges only statistically, slowly when steps are correlated (a good plan usually comes with good execution).
 
 \paragraph{Zero-variance groups}
-With binary reward, success probability $p$ and group size $G$, a group in which all rewards are equal has zero advantage and contributes no gradient. This happens with probability
+With binary reward, success probability $p$ and group size $G$, a group whose rewards are all equal has zero advantage and contributes no gradient. This happens with probability
 \begin{equation}
   P_{\text{zero}}=p^{G}+(1-p)^{G}.
   \label{eq:zerovar}
 \end{equation}
-For $G=8$ and $p=0.9$, $P_{\text{zero}}=0.9^8+0.1^8\approx0.43$: about 43\% of such prompts carry no signal. DAPO's dynamic sampling discards these groups and draws new ones until the batch is full~\citep{yu2025dapo}. That restores the batch size but spends extra rollouts to do so.
+For $G=8$ and $p=0.9$, $P_{\text{zero}}\approx0.43$. DAPO's dynamic sampling discards these groups and resamples until the batch is full~\citep{yu2025dapo}, restoring the batch size at the price of extra rollouts.
 
 \paragraph{Fixes add bias}
-Each standard remedy trades variance for a particular bias. Per-response length normalization and per-group standard-deviation normalization bias which sequences and prompts get gradient~\citep{liu2025understanding}. Prompt-level normalization is a biased estimator~\citep{hu2025reinforce}. Learned critics add value error~\citep{yuan2025whats}, and learned PRMs add a hackable target (Section~\ref{sec:taxonomy}). A credit method should therefore be judged on which bias it introduces and on what extra compute it needs, not only on whether it reduces variance.
+Each standard remedy trades variance for a particular bias. Length and per-group standard-deviation normalization bias which sequences and prompts get gradient~\citep{liu2025understanding}; prompt-level normalization is biased~\citep{hu2025reinforce}; learned critics add value error~\citep{yuan2025whats}; and learned PRMs add a hackable target (Section~\ref{sec:tax-prm}). A credit method should therefore be judged on which bias it introduces and what extra compute it needs, not only on whether it reduces variance.

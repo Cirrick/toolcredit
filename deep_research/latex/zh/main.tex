@@ -1,0 +1,94 @@
+% Credit Assignment for LLM Agents: A Survey and a Research Agenda
+% Compile: latexmk -xelatex main.tex
+% If the official NeurIPS style file (neurips_2025.sty / neurips_2026.sty) is placed
+% next to this file, it is used automatically; otherwise a close approximation of the
+% NeurIPS layout is applied (letter paper, 5.5in x 9in text block, 10pt Times).
+\documentclass[10pt]{article}
+
+\IfFileExists{neurips_2026.sty}{%
+  \usepackage[preprint]{neurips_2026}\def\usingofficialstyle{1}%
+}{\IfFileExists{neurips_2025.sty}{%
+  \usepackage[preprint]{neurips_2025}\def\usingofficialstyle{1}%
+}{%
+  % ---- Fallback: approximate NeurIPS layout ----
+  \usepackage[letterpaper,textwidth=5.5in,textheight=9in,top=1in,headheight=12pt,headsep=25pt,footskip=30pt]{geometry}
+  \usepackage{natbib}
+  \setcitestyle{numbers,square}
+  \usepackage{titlesec}
+  \titleformat{\section}{\large\bfseries\raggedright}{\thesection}{1em}{}
+  \titleformat{\subsection}{\normalsize\bfseries\raggedright}{\thesubsection}{1em}{}
+  \titleformat{\paragraph}[runin]{\normalsize\bfseries}{}{0pt}{}[.]
+  \setlength{\parindent}{0pt}
+  \setlength{\parskip}{5.5pt}
+  \renewcommand{\abstractname}{\large\bfseries 摘要}
+}}
+
+\usepackage{fontspec}
+\setmainfont{Liberation Serif}
+\usepackage[slantfont,boldfont]{xeCJK}
+\setCJKmainfont{Noto Serif CJK SC}
+\setCJKsansfont{Noto Sans CJK SC}
+\setCJKmonofont{Noto Sans Mono CJK SC}
+\linespread{1.15}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black}
+\usepackage{url}
+\usepackage{xurl}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\setlist{itemsep=1pt,topsep=2pt}
+\setlength{\emergencystretch}{2.5em}
+
+% Marker for claims that could not be verified against the primary source.
+\newcommand{\unverified}{\textsuperscript{\textcolor{orange!80!black}{\dag}}}
+\newcommand{\ie}{i.e.,\ }
+\newcommand{\eg}{e.g.,\ }
+
+\title{功劳归谁？LLM 智能体的信用分配：以 Memory-R2 为主线的综述与研究议程}
+
+\author{%
+  Survey notes\\
+  \texttt{Draft of 2026-11-17}
+}
+
+\renewcommand{\refname}{参考文献}
+\renewcommand{\figurename}{图}
+\renewcommand{\tablename}{表}
+\renewcommand{\appendixname}{附录}
+\begin{document}
+
+\ifdefined\usingofficialstyle\else
+\begin{center}
+  {\LARGE\bfseries 功劳归谁？\\[3pt]
+  {\Large LLM 智能体的信用分配：以 Memory-R2 为主线的综述与研究议程}\par}
+  \vspace{1em}
+  {\normalsize 综述笔记（中文版，译自英文版）\quad\textperiodcentered\quad 2026-11-17 草稿\par}
+  \vspace{1.5em}
+\end{center}
+\fi
+\ifdefined\usingofficialstyle\maketitle\fi
+
+\input{sections/00_abstract}
+\input{sections/01_introduction}
+\input{sections/02_background}
+\input{sections/03_agentic_rl}
+\input{sections/04_problem}
+\input{sections/05_taxonomy}
+\input{sections/06_memory_r2}
+\input{sections/07_comparison}
+\input{sections/08_toolcredit}
+\input{sections/09_agenda}
+
+\bibliographystyle{unsrtnat}
+\bibliography{refs}
+
+\appendix
+\input{sections/A_appendix}
+
+\end{document}

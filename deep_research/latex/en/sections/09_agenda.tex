@@ -1,34 +1,25 @@
 \section{Research Directions and an Actionable Plan}\label{sec:agenda}
 
-This section turns the survey into choices for a specific reader: someone with a working veRL multi-turn tool-use GRPO pipeline on one GH200 (146\,GB) with Qwen3-1.7B, a pre-registered matched-compute protocol, and three null or pathological results from the ToolCredit study (Sec.~\ref{sec:toolcredit}). In that study, non-conservative turn-level credit caused tool over-calling without any endpoint gain. Conservative (zero-sum) redistribution removed the over-calling but gave no gain at $\leq$4 turns. DAPO-style filtering gave no gain per unit of rollout. Ratings and forecasts below are our assessment, and \unverified\ marks claims we read only in abstracts or secondary sources.
+This section turns the survey into choices for a specific reader: someone with a working veRL multi-turn tool-use GRPO pipeline on one GH200 (146\,GB) with Qwen3-1.7B, a pre-registered matched-compute protocol, and the null or pathological results of the ToolCredit study (Section~\ref{sec:toolcredit}). Ratings and forecasts below are our assessment, and \unverified{} marks claims we read only in abstracts or secondary sources.
 
 \subsection{What is hot, what is crowded, what is open}
 
 \paragraph{Hot}
-A third-party count of NeurIPS 2026 papers shows the ``LLM agents'' category growing from 105 to 312 and policy-gradient RL from 55 to 100 \citep{scime2026neurips}\unverified. The NeurIPS 2026 workshops lean toward agent evaluation, continual and test-time learning agents, and resource-aware agents \citep{neurips2026announcing}. Credit assignment now has its own survey \citep{zhang2026from}, and GiGPO \citep{feng2025group} is a default agent baseline. Careful analysis papers also get noticed: \citet{yue2025does} was a NeurIPS 2025 oral, and an RLVR analysis paper won an ICML 2026 honorable mention \citep{icml2026awards}.
+A third-party count of NeurIPS 2026 papers shows ``LLM agents'' growing from 105 to 312 and policy-gradient RL from 55 to 100 \citep{scime2026neurips}\unverified; the NeurIPS 2026 workshops lean toward agent evaluation, continual learning and resource-aware agents \citep{neurips2026announcing}. Credit assignment has its own survey \citep{zhang2026from}, GiGPO \citep{feng2025group} is a default baseline, and careful analysis papers get noticed: \citet{yue2025does} was a NeurIPS 2025 oral, and an RLVR analysis paper won an ICML 2026 honorable mention \citep{icml2026awards}.
 
 \paragraph{Crowded}
-Two clusters are crowded. (i) \emph{Yet another GRPO variant on math.} New variants mostly fix normalization or clipping problems in earlier ones, and self-reported gains are often only 1--3 points\unverified. ScaleRL found that such changes mostly improve efficiency, not final performance \citep{khatri2025art}, which matches ToolCredit's filtering result. (ii) \emph{Turn-level attribution for short-horizon tool use.} This cluster includes MT-GRPO \citep{wei2025reinforcing}, GiGPO, HCAPO \citep{tan2026hindsight}, gold-likelihood turn rewards, and about a dozen late-2026 entries in curated paper lists\unverified. There is no shared benchmark, and most of these papers compare at an equal number of trajectories rather than equal tokens or tool calls. \citet{zhang2026credit} show that apparent differences between credit rules can come from \emph{training dose}, i.e.\ how many effective gradient updates each rule allows.
+(i)~\emph{Yet another GRPO variant on math}: self-reported gains are often 1--3 points\unverified, and such changes mostly improve efficiency, not the asymptote \citep{khatri2025art}, as ToolCredit's filtering result also shows. (ii)~\emph{Turn-level attribution for short-horizon tool use}: MT-GRPO \citep{wei2025reinforcing}, GiGPO, HCAPO \citep{tan2026hindsight}, gold-likelihood turn rewards, and about a dozen late-2026 entries in curated lists\unverified, with no shared benchmark and comparisons mostly at equal trajectories, where training dose confounds the result \citep{zhang2026credit}.
 
 \paragraph{Open}
-Seven problems remain open:
-\begin{itemize}
-  \item \textbf{Credit-quality evaluation with ground truth.} The credit survey calls for tasks whose ``controlled bifurcation points'' make the correct credit computable \citep{zhang2026from}\unverified. The only attempts so far are an exact-oracle suite on tiny MDPs \citep{hectopascal2026agentcreditbench}\unverified\ and a replay audit in which common credit signals did no better than a shuffled control \citep{zhang2026credit}.
-  \item \textbf{Ultra-long horizons.} Real agents run 100--1000 steps, while most tool-use RL studies stop at $\leq$10 turns \citep{zhang2025landscape}.
-  \item \textbf{Exploration $\times$ credit.} Credit shapes what the policy explores; over-calling is one example.
-  \item \textbf{Non-resettable environments.} Branching methods need exact snapshots, which break when actions have side effects.
-  \item \textbf{Memory and context actions.} Memory-R2 argues that comparing whole trajectories is unfair once memory states diverge \citep{yan2026memory}. We found no compute-matched baseline for its extra rollouts.
-  \item \textbf{Multi-agent credit.} Both surveys list it as unsolved \citep{zhang2025landscape,zhang2026from}.
-  \item \textbf{Compute-matched methodology.} Comparisons should match rollout tokens, tool calls and effective sample size.
-\end{itemize}
+Seven problems remain open: (1)~\emph{credit-quality evaluation with ground truth}, for which the credit survey calls for tasks with ``controlled bifurcation points'' \citep{zhang2026from}\unverified{} and the only attempts are an exact-oracle suite on tiny MDPs \citep{hectopascal2026agentcreditbench}\unverified{} and a replay audit without ground truth \citep{zhang2026credit}; (2)~\emph{ultra-long horizons}: real agents run 100--1000 steps, while most tool-use RL studies stop at $\leq$10 turns \citep{zhang2025landscape}; (3)~\emph{exploration $\times$ credit}, since credit shapes what the policy explores (over-calling is one example); (4)~\emph{non-resettable environments}, where branching breaks; (5)~\emph{memory and context actions}, where Memory-R2's fairness argument still lacks a compute-matched test (Section~\ref{sec:memory-critique}); (6)~\emph{multi-agent credit}, listed as unsolved by both surveys \citep{zhang2025landscape,zhang2026from}; and (7)~\emph{compute-matched methodology}, matching rollout tokens, tool calls and effective sample size.
 
 \subsection{Viability over time: now, one year, three years}
 
-Table~\ref{tab:agenda-viability} rates each direction for a single-GPU researcher. ``Now'' means the January 2027 ICML/ACL deadlines; the later columns are speculation. Methods tied to today's short-horizon benchmarks lose value fastest. Measurement tools, and problems that only appear at long horizons, keep it.
+Table~\ref{tab:agenda-viability} rates each direction for a single-GPU researcher (``now'' meaning the January 2027 ICML and ACL deadlines). Methods tied to today's short-horizon benchmarks lose value fastest; measurement tools and long-horizon problems keep it.
 
 \begin{table}[t]
 \centering
-\small
+\footnotesize
 \caption{Viability for one GPU and 1.7--8B models (our assessment; 1-year and 3-year columns are speculative).}
 \label{tab:agenda-viability}
 \begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X@{}}
@@ -49,33 +40,33 @@ Continual / self-evolving agents & \textbf{Med}: problem framing still unsettled
 
 \subsection{Candidate research ideas}
 
-For budgeting, one ToolCredit run (200 steps, about 102k trajectories) takes roughly 10 GPU-hours, by our estimate from its logs.
+For budgeting, one ToolCredit run (200 steps, about 102k trajectories) takes roughly 10 GPU-hours, by our estimate from its logs. Below, $T$ is the horizon in turns.
 
 \paragraph{Idea 1: a controllable-horizon credit benchmark with computable ground truth}
-\emph{Problem and gap.} Papers report endpoint accuracy, but there is no LLM-scale environment where the true per-turn advantage is known and the horizon can be varied. \emph{Hypothesis.} Credit fidelity, meaning agreement between a method's per-turn credit and the true advantage, falls as horizon and the number of distractor turns grow. Non-conservative signals put credit on distractor turns, and this predicts over-calling. At $\leq$4 turns, fidelity differences between methods are too small to produce endpoint gains, which would explain ToolCredit's null results. \emph{Minimal experiment.} Generate Python-tool tasks in which $k$ decisive turns are planted among $H$ turns. Tools are deterministic and stateless, so the true advantages follow from the task's causal structure or from exact replay. Experiment (a) is an offline audit on logged rollouts at $H\in\{2,4,8,16\}$ comparing six estimators: GRPO broadcast, ToolCredit's non-conservative and conservative turn credit, prefix-fork Monte Carlo \citep{kazemnejad2024vineppo,ji2025tree}, anchor grouping \citep{feng2025group}, and gold-likelihood. Experiment (b) trains 3 methods $\times$ 3 horizons $\times$ 3 seeds with compute matched. \emph{Compute.} The audit needs 1--2 GPU-days. Training uses runs of about 3\,h each, or 3--5 GPU-days in total. \emph{Risk.} Reviewers may call it a toy, so add a real-task anchor (replay-estimated fidelity on the ToolCredit MATH environment). The definition of ground truth must be defended, and the AgentCreditBench authors could publish first. \emph{Venue.} ICML 2027, falling back to NeurIPS 2027 Datasets \& Benchmarks. \emph{Closest work.} AgentCreditBench (tiny MDPs, no LLM training\unverified), \citet{zhang2026credit} (replay audit with no ground truth), and QVal (arXiv 2606.32034)\unverified. What is new here is a real training loop, a horizon that can be varied, and a link from fidelity to compute-matched outcomes.
+\emph{Gap.} No LLM-scale environment exists where the true per-turn advantage is known and the horizon can be varied; papers report only endpoint accuracy. \emph{Hypothesis.} Credit fidelity (agreement between a method's per-turn credit and the true advantage) falls as $T$ and the number of distractor turns grow; non-conservative signals put credit on distractors, predicting over-calling; and at $T\leq4$ fidelity differences are too small to move the endpoint, which would explain ToolCredit's nulls. \emph{Minimal experiment.} Python-tool tasks with $k$ decisive turns planted among $T$; tools are deterministic and stateless, so true advantages follow from the causal structure or exact replay. (a)~An offline audit at $T\in\{2,4,8,16\}$ of six estimators: GRPO broadcast, ToolCredit's non-conservative and conservative turn credit, prefix-fork Monte Carlo \citep{kazemnejad2024vineppo,ji2025tree}, anchor grouping \citep{feng2025group}, and gold-likelihood. (b)~Training 3 methods $\times$ 3 horizons $\times$ 3 seeds at matched compute. \emph{Compute.} 1--2 GPU-days (audit) plus 3--5 GPU-days of $\sim$3\,h runs. \emph{Risk.} ``Toy'' criticism (add replay-estimated fidelity on the real ToolCredit MATH environment); defending the ground-truth definition; being scooped by AgentCreditBench. \emph{Venue.} ICML 2027; fallback NeurIPS 2027 Datasets \& Benchmarks. \emph{Closest work.} AgentCreditBench (tiny MDPs, no LLM training\unverified), \citet{zhang2026credit} (replay audit, no ground truth), QVal (arXiv 2606.32034)\unverified. New here: a real training loop, a variable horizon, and a link from fidelity to compute-matched outcomes.
 
 \paragraph{Idea 2: when does credit assignment pay off?}
-\emph{Problem.} In ToolCredit, only 4--10\% of trajectories received a non-zero correction (``exposure''), and no gain appeared at $\leq$4 turns. \emph{Hypothesis.} At matched compute, the gain from finer credit grows with horizon and exposure, and there is a threshold below which it cannot be detected. \emph{Minimal experiment.} Raise the tool budget to 8 and 16 turns on a problem pool where tools actually help; ToolCredit's no-tool control found no significant tool value on MATH. Compare GRPO, conservative credit and prefix-fork credit over 3 seeds, then fit gain against horizon and exposure. \emph{Compute.} About 20 runs at 1.5--3$\times$ the usual cost, or 10--12 GPU-days. \emph{Risk.} Longer horizons also make problems harder, which confounds the sweep, and a flat curve would be a weaker finding. \emph{Venue.} ICML 2027 if merged with Idea 1; otherwise ACL ARR or TMLR. \emph{Closest work.} \citet{zhang2026credit} identify the dose confound at a single horizon; this idea measures how the gain changes across horizons with dose held fixed, using ScaleRL-style curve fits \citep{khatri2025art}.
+\emph{Problem.} In ToolCredit only 4--10\% of trajectories had non-zero correction (exposure), and no gain appeared at $T\leq4$. \emph{Hypothesis.} At matched compute, the gain from finer credit grows with horizon and exposure, with a detection threshold. \emph{Experiment.} Raise the tool budget to 8 and 16 turns on problems where tools actually help (ToolCredit's no-tool control found no significant tool value on MATH); compare GRPO, conservative and prefix-fork credit over 3 seeds; fit gain against horizon and exposure with ScaleRL-style curves \citep{khatri2025art}. \emph{Compute.} About 20 runs, 10--12 GPU-days. \emph{Risk.} Longer horizons also make problems harder; a flat curve is a weaker finding. \emph{Venue.} ICML 2027 merged with Idea 1; else ACL ARR or TMLR. \emph{Closest work.} \citet{zhang2026credit} find the dose confound at one horizon; this idea varies horizon with dose fixed.
 
 \paragraph{Idea 3: conservation as an anti-gaming principle}
-\emph{Problem.} A dense credit signal whose per-turn values do not sum to zero acts as an implicit reward that the policy can farm. In ToolCredit, the share of four-call trajectories rose from 1.3\% to 92.9\% under non-conservative credit and fell to 0.8\% under zero-sum redistribution. \emph{Hypothesis.} Making any dense signal zero-sum within a trajectory removes the incentive to add calls without changing the outcome objective. We speculate that a policy-invariance result, similar to potential-based shaping \citep{ng1999policy} and RUDDER's return-equivalent redistribution \citep{arjona2019rudder}, holds for group-relative estimators. \emph{Experiment.} Make 2--3 dense signals zero-sum: an execution bonus, gold-likelihood, and a summed PRM-style score. The E4, E5 and E8 runs already exist, so only 6--9 new runs are needed. \emph{Risk.} Reviewers may see it as known; PURE \citep{cheng2025stop} and counterfactual Shapley redistribution \citep{li2026counterfactual} are close. \emph{Venue.} A workshop or ACL ARR.
+\emph{Problem.} A dense signal whose per-turn values do not sum to zero is an implicit reward the policy can farm (ToolCredit's 4-call rate: 1.3\%$\to$92.9\% non-conservative, 0.8\% conservative). \emph{Hypothesis.} Making any dense signal zero-sum within a trajectory removes the incentive to add calls without changing the outcome objective; we speculate that a policy-invariance result akin to potential-based shaping \citep{ng1999policy} and RUDDER's return-equivalent redistribution \citep{arjonamedina2019rudder} holds for group-relative estimators. \emph{Experiment.} Make 2--3 dense signals zero-sum (execution bonus, gold-likelihood, summed PRM score); the E4 and E5 runs exist, so 6--9 new runs suffice. \emph{Risk.} May be seen as known: PURE \citep{cheng2025stop} and counterfactual Shapley redistribution \citep{li2026counterfactual} are close. \emph{Venue.} A workshop or ACL ARR.
 
 \paragraph{Idea 4: memory-write credit with a matched-budget baseline}
-\emph{Problem.} LoGo-GRPO raises LoCoMo F1 over GRPO from 46.62 to 49.67 \citep{yan2026memory}, but its local rerollouts add episodes, and we could not find a GRPO arm given the same extra rollouts. \emph{Hypothesis.} Part of the gain is training dose. \emph{Experiment.} Train 1.7--4B write policies with a frozen answer agent under four arms: GRPO, GRPO with matched extra rollouts, LoGo-style rerollouts, and full context. Evaluate on LongMemEval \citep{wu2024longmemeval} and MemoryAgentBench \citep{hu2025evaluating}. \emph{Compute.} Weeks, not days. \emph{Risk.} Porting cost, LoCoMo label noise\unverified, and judge sensitivity. \emph{Venue.} NeurIPS or EMNLP 2027.
+\emph{Problem.} LoGo-GRPO raises LoCoMo F1 over GRPO from 46.62 to 49.67 \citep{yan2026memory}, but its rerollouts add episodes, and we could not find a GRPO arm given the same extra rollouts. \emph{Hypothesis.} Part of the gain is training dose. \emph{Experiment.} 1.7--4B write policies with a frozen answer agent under four arms (GRPO, GRPO with matched extra rollouts, LoGo-style rerollouts, full context), evaluated on LongMemEval \citep{wu2024longmemeval} and MemoryAgentBench \citep{hu2025evaluating}. \emph{Compute.} Weeks. \emph{Risk.} Porting cost, LoCoMo label noise\unverified, judge sensitivity. \emph{Venue.} NeurIPS or EMNLP 2027.
 
 \paragraph{Idea 5: cheap branching credit for near-stateless tools}
-Python prefix replay is exact, so forking at uncertain turns \citep{ji2025tree} could be compared at matched tokens and extended to memory writes. It is feasible, but Tree-GRPO, ARPO, AT$^2$PO and LoGo-GRPO already crowd the space, so the risk of being scooped is high. It is best used as an arm inside Idea 1.
+Exact Python prefix replay makes forking at uncertain turns \citep{ji2025tree} cheap to test at matched tokens, but Tree-GRPO, ARPO, AT$^2$PO and LoGo-GRPO crowd the space; it is best used as an arm inside Idea 1.
 
 \paragraph{Ranking and recommendation}
-We rank the ideas by fit to the reader's existing assets, how open the problem is, feasibility before 22 January, and scoop risk: \textbf{1 $>$ 2 $>$ 3 $>$ 4 $>$ 5}. The \emph{primary} recommendation is Idea 1, with Idea 2's horizon sweep as its main training experiment. It reuses almost everything already built and turns past null results into an explanation. The \emph{backup} is Idea 2 on its own in the existing environment, if the task generator or the ground-truth definition slips. Idea 3 is a cheap side paper, and Idea 4 is the natural next project, connecting back to Memory-R2.
+By fit to existing assets, openness, feasibility before 22 January and scoop risk: \textbf{1 $>$ 2 $>$ 3 $>$ 4 $>$ 5}. The \emph{primary} recommendation is Idea 1 with Idea 2's horizon sweep as its main training experiment: it reuses almost everything already built and turns past nulls into an explanation. The \emph{backup} is Idea 2 alone, if the task generator or ground-truth definition slips. Idea 3 is a cheap side paper; Idea 4 is the natural next project.
 
 \subsection{If you start today: a 10-week plan}
 
-The ICML 2027 abstract is due 14 January and the paper on 22 January \citep{icml2027reciprocal}. That leaves about nine working weeks of the ten (which end around 26 January), with no slack. Table~\ref{tab:agenda-plan} gives the week-by-week plan.
+The ICML 2027 abstract is due 14 January and the paper 22 January \citep{icml2027reciprocal}; ten weeks from 17 November reach the deadline with no slack (Table~\ref{tab:agenda-plan}).
 
 \begin{table}[t]
 \centering
-\small
+\footnotesize
 \caption{Ten-week plan for Idea 1 (with the Idea 2 sweep) toward ICML 2027. G = go/no-go gate.}
 \label{tab:agenda-plan}
 \begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{1.5cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{3.2cm}@{}}
@@ -84,10 +75,10 @@ Week & Work & Deliverable / gate \\
 \midrule
 W1 (11/17) & Read the closest work in full (2608.19760, 2604.09459, AgentCreditBench, QVal); define ground-truth credit; freeze the pre-registration (hypotheses, decision matrix, compute axes, seeds) & \textbf{G0}: if the idea is already published, switch to Idea 2 \\
 W2 (11/24) & Planted-turn task generator on the existing sandbox and verifier; test analytic advantage against exact replay & Generator with tests \\
-W3 (12/1) & Log rollouts at $H\in\{2,4,8,16\}$; implement estimators as pure functions over the logs & \textbf{G1}: a fidelity gap with CI excluding 0 at $H\geq8$ \\
-W4 (12/8) & Finish the audit; smoke-test training; keep runs to about 3\,h & Fidelity-vs.-$H$ figure \\
-W5 (12/15) & Training batch 1: GRPO, conservative and fork arms at $H\in\{4,16\}$, 3 seeds & 18 runs \\
-W6 (12/22) & Batch 2: $H{=}8$ and the non-conservative arm; holiday slack & \textbf{G2}: MVR done, or cut to $H\in\{4,16\}$ \\
+W3 (12/1) & Log rollouts at $T\in\{2,4,8,16\}$; implement estimators as pure functions over the logs & \textbf{G1}: a fidelity gap with CI excluding 0 at $T\geq8$ \\
+W4 (12/8) & Finish the audit; smoke-test training; keep runs to about 3\,h & Fidelity-vs.-$T$ figure \\
+W5 (12/15) & Training batch 1: GRPO, conservative and fork arms at $T\in\{4,16\}$, 3 seeds & 18 runs \\
+W6 (12/22) & Batch 2: $T{=}8$ and the non-conservative arm; holiday slack & \textbf{G2}: MVR done, or cut to $T\in\{4,16\}$ \\
 W7 (12/29) & Real-task anchor (replay on existing ToolCredit checkpoints); bootstrap CIs & Numbers frozen \\
 W8 (1/5) & Full draft and figures; distractor-density ablation if time allows & Draft v1 \\
 W9 (1/12) & Register the abstract (1/14); internal review; appendix; code release & Abstract in \\
@@ -97,40 +88,17 @@ W10 (1/19) & Submit (1/22); then pick a fallback venue & Paper in \\
 \end{table}
 
 \paragraph{Minimal viable result and paper contents}
-The minimal viable result (MVR) has two parts. The first is a figure of credit fidelity against horizon for at least four estimators, with bootstrap CIs. The second is one pre-registered, compute-matched comparison of final performance at two horizons, reported whatever its sign. The paper needs four figures:
-\begin{itemize}
-  \item a schematic of the environment;
-  \item fidelity against horizon (the headline result);
-  \item credit placed on distractor turns against over-calling rate;
-  \item learning curves against trajectories, rollout tokens and gradient steps.
-\end{itemize}
-It also needs two tables: each estimator's assumptions and cost, and the decision matrix with its outcomes.
+The minimal viable result (MVR) is (i) credit fidelity against horizon for at least four estimators, with bootstrap CIs, and (ii) one pre-registered, compute-matched comparison at two horizons, reported whatever its sign. Figures: environment schematic; fidelity vs.\ horizon (headline); credit on distractor turns vs.\ over-calling; learning curves against trajectories, rollout tokens and gradient steps. Tables: estimator assumptions and cost; the decision matrix with outcomes.
 
 \paragraph{Reuse}
-Much of the work already exists in ToolCredit:
-\begin{itemize}
-  \item the hardened sandbox, the verifier and the veRL agent-loop configs;
-  \item the turn-credit code in \texttt{rl/custom/}, whose E5 and E8 variants become estimator arms;
-  \item equal-compute checkpoint selection and multi-axis compute accounting;
-  \item hash-frozen evaluation, paired bootstrap CIs and the decision-matrix templates.
-\end{itemize}
+The sandbox, verifier, agent-loop configs, turn-credit code (E5-v1/v2 become estimator arms), equal-compute checkpoint selection, compute accounting, frozen evaluation and bootstrap CIs all exist in ToolCredit.
 
 \paragraph{If behind}
-Cut in this order: the LLM-critic arm; $H{=}16$ training (keep $H{=}16$ in the audit); the anchor-grouping arm; and secondary arms down to 2 seeds. Never cut the pre-registration, the compute accounting, or the 3 seeds of the primary comparison. If ICML slips, the options are the ACL 2027 ARR cycle (January or February\unverified), NeurIPS 2027 (likely May; our speculation), ICLR 2027 workshops (speculation), or TMLR, which suits a solid null result.
+Cut in this order: the LLM-critic arm; $T{=}16$ training (keep it in the audit); the anchor-grouping arm; secondary arms down to 2 seeds. Never cut the pre-registration, the compute accounting, or the 3 seeds of the primary comparison. If ICML slips: ACL 2027 ARR (January or February\unverified), NeurIPS 2027 (likely May; speculation), ICLR 2027 workshops (speculation), or TMLR, which suits a solid null result.
 
 \subsection{Risks and how to de-risk}
 
-\paragraph{Scooping}
-The area moves monthly, and the training-dose argument is already public \citep{zhang2026credit}. Keep gate G0, check the two curated credit-assignment lists weekly, and post a preprint at submission. Make the environment plus protocol the contribution, since that is harder to scoop than a single method.
-
-\paragraph{Compute}
-A single GPU leaves no room for reruns. ToolCredit's runs were interrupted after 5--9\,h by host-memory growth. Keep runs short and resumable, run the training-free audit first, and use 8B models only for audit-scale generation.
-
-\paragraph{Negative results}
-Present a null result as a measurement, for example: ``fidelity differences are measurable, but gains require horizon $\geq H^\ast$.'' Pre-registration and matched compute make such results credible, and \citet{yue2025does} and \citet{zhang2026credit} show that analysis papers of this kind get published.
-
-\paragraph{Verifying related work}
-Many 2026 arXiv IDs in this survey come from search snippets or curated lists and are marked \unverified. Some venue claims, such as Memory-R2 at NeurIPS 2026, were not checked against the proceedings. Read every cited 2026 paper in full before submission.
+\emph{Scooping:} the area moves monthly and the training-dose argument is already public \citep{zhang2026credit}; keep gate G0, check the curated credit-assignment lists weekly, post a preprint at submission, and make the environment plus protocol the contribution, which is harder to scoop than a method. \emph{Compute:} one GPU leaves no room for reruns, and ToolCredit's runs were interrupted after 5--9\,h by host-memory growth; keep runs short and resumable and run the training-free audit first. \emph{Negative results:} present a null as a measurement (``fidelity differences are measurable, but gains require $T\geq T^\ast$''); pre-registration and matched compute make it credible, and \citet{yue2025does} and \citet{zhang2026credit} show that such analysis papers get published. \emph{Related work:} many 2026 IDs and venue claims here are daggered (Section~\ref{sec:intro}); read every cited 2026 paper in full before submission.
 
 \paragraph{Closing}
-Credit assignment for LLM agents is crowded with methods but has almost no way to measure whether credit is right. The most useful next contribution is therefore a test of whether a given method assigns credit correctly, and of the horizon at which that starts to matter. ToolCredit's pipeline, protocol and null results are well suited to building that test. Memory-R2 suggests the question will grow in importance as agents gain memory and longer horizons.
+Credit assignment for LLM agents is crowded with methods but has almost no way to measure whether credit is right. The most useful next contribution is a test of whether a method assigns credit correctly, and of the horizon at which that starts to matter; ToolCredit's pipeline and protocol are well suited to building it, and Memory-R2 suggests the question will matter more as agents gain memory and longer horizons.

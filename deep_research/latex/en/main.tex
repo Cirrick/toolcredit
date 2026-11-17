@@ -25,10 +25,10 @@
 
 \usepackage{fontspec}
 \setmainfont{Liberation Serif}
-\usepackage[T1]{fontenc}
 \usepackage{hyperref}
 \hypersetup{colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black}
 \usepackage{url}
+\usepackage{xurl}
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{multirow}
@@ -38,6 +38,7 @@
 \usepackage{xcolor}
 \usepackage{enumitem}
 \setlist{itemsep=1pt,topsep=2pt}
+\setlength{\emergencystretch}{2.5em}
 
 % Marker for claims that could not be verified against the primary source.
 \newcommand{\unverified}{\textsuperscript{\textcolor{orange!80!black}{\dag}}}
@@ -56,8 +57,8 @@ A Survey Centered on Memory-R2 and a Research Agenda}
 
 \ifdefined\usingofficialstyle\else
 \begin{center}
-  {\LARGE\bfseries Who Gets the Credit? Credit Assignment for LLM Agents:\\[2pt]
-  A Survey Centered on Memory-R2 and a Research Agenda\par}
+  {\LARGE\bfseries Who Gets the Credit?\\[3pt]
+  {\Large Credit Assignment for LLM Agents: A Survey Centered on\\ Memory-R2 and a Research Agenda}\par}
   \vspace{1em}
   {\normalsize Survey notes \quad\textperiodcentered\quad Draft of 2026-11-17\par}
   \vspace{1.5em}

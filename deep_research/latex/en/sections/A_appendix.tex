@@ -1,1 +1,35 @@
-% TODO: A_appendix (not yet written)
+\section{Reading List by Section}\label{app:reading}
+\normalfont\raggedright
+
+A must-read list of 35 papers, grouped by topic, with arXiv IDs. Items marked \unverified{} carry an ID or detail we could not check against the primary source.
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Foundations (Sections~\ref{sec:background}, \ref{sec:problem}).} PPO~\citep{schulman2017proximal} (1707.06347); GAE~\citep{schulman2015high} (1506.02438); DeepSeekMath/GRPO~\citep{shao2024deepseekmath} (2402.03300); Dr.~GRPO~\citep{liu2025understanding} (2503.20783); DAPO~\citep{yu2025dapo} (2503.14476); VC-PPO~\citep{yuan2025whats} (2503.01491); ScaleRL~\citep{khatri2025art} (2510.13786); Does RL incentivize reasoning?~\citep{yue2025does} (2504.13837).
+  \item \textbf{Classic credit assignment and surveys (Sections~\ref{sec:problem}, \ref{sec:taxonomy}).} Temporal credit assignment survey~\citep{pignatelli2024survey} (2312.01072); RUDDER~\citep{arjonamedina2019rudder} (1806.07857); Hindsight Credit Assignment~\citep{harutyunyan2019hindsight} (1912.02503); From reasoning to agentic credit assignment~\citep{zhang2026from} (2604.09459).
+  \item \textbf{Agentic RL (Section~\ref{sec:agentic}).} Landscape of agentic RL~\citep{zhang2025landscape} (2509.02547); Search-R1~\citep{jin2025search} (2503.09516); SimpleTIR~\citep{xue2025simpletir} (2509.02479); RAGEN~\citep{wang2025ragen} (2504.20073); Branching Policy Optimization~\citep{bpo2026branching} (2607.14171).
+  \item \textbf{Credit methods (Section~\ref{sec:taxonomy}).} PURE~\citep{cheng2025stop} (2504.15275); VinePPO~\citep{kazemnejad2024vineppo} (2410.01679); Tree-GRPO~\citep{ji2025tree} (2509.21240); GiGPO~\citep{feng2025group} (2505.10978); MT-GRPO~\citep{wei2025reinforcing} (2505.11821); SWEET-RL~\citep{zhou2025sweet} (2503.15478); TRACE~\citep{trace2026turn} (2607.13988); HCAPO~\citep{tan2026hindsight} (2603.08754); high-entropy forking tokens~\citep{wang2025beyond} (2506.01939).
+  \item \textbf{Audits and failure modes (Sections~\ref{sec:tax-failures}, \ref{sec:toolcredit}).} Credit Without Ground Truth~\citep{zhang2026credit} (2608.19760) and Proof-of-Use~\citep{proofofuse2025proof} (2510.10931).
+  \item \textbf{Memory agents (Section~\ref{sec:memory}).} Memory-R1~\citep{yan2025memory} (2508.19828); Memory-R2~\citep{yan2026memory} (2605.21768); Mem-T~\citep{memt2026mem} (2601.23014); MEM1~\citep{zhou2025mem1} (2506.15841)\unverified; LoCoMo~\citep{maharana2024evaluating} (2402.17753); LongMemEval~\citep{wu2024longmemeval} (2410.10813); MemoryAgentBench~\citep{hu2025evaluating} (2507.05257).
+\end{itemize}
+
+\section{Glossary}\label{app:glossary}
+
+\begin{description}[leftmargin=0pt,itemsep=1pt,font=\normalfont\bfseries]
+  \item[RLVR.] RL with verifiable rewards: a programmatic checker (answer match, unit tests) replaces a learned reward model.
+  \item[GRPO.] Group Relative Policy Optimization: samples $G$ responses per prompt and uses the group-normalized reward as every token's advantage (Eq.~\ref{eq:grpo-adv}).
+  \item[Advantage ($A$).] How much better an action (token, turn, trajectory) is than a baseline; the per-token weight of the policy gradient.
+  \item[GAE.] Generalized advantage estimation: a $\lambda$-weighted sum of TD errors from a learned critic (Eq.~\ref{eq:gae}).
+  \item[PRM.] Process reward model: a scorer that rates intermediate steps rather than only the final outcome.
+  \item[Rollout.] One sampled trajectory of the policy from the initial state to the end of the episode.
+  \item[Rerollout / branching.] Resampling continuations from an intermediate state (by prefix replay or a sandbox snapshot) to estimate that state's value or a sibling baseline.
+  \item[Anchor state.] An environment state that recurs across rollouts of the same prompt, letting actions taken there be compared directly (GiGPO).
+  \item[Zero-variance group.] A GRPO group whose rewards are all equal; its advantages are zero, so it contributes no gradient (Eq.~\ref{eq:zerovar}).
+  \item[Horizon ($T$).] The number of decisions (turns or tokens) between the start of an episode and its reward.
+  \item[Turn.] One block of generated tokens ending in a tool call or a final answer; the unit of turn-level credit.
+  \item[Conservative credit.] A per-turn correction that sums to zero within each trajectory, so it redistributes the outcome without adding reward.
+  \item[Over-calling.] A learned habit of making more tool calls than needed, typically induced by per-call rewards or non-conservative credit.
+  \item[Exposure.] The share of trajectories on which a credit method actually changes the advantage (\eg those with at least two distinguishable turns).
+  \item[Matched compute.] Comparing methods at an equal rollout budget (trajectories, tokens, tool calls) rather than at an equal number of updates.
+  \item[Effective sample size.] The number of samples that actually contribute gradient after filtering or sparse credit; a proxy for training dose.
+  \item[Training dose.] The amount of gradient signal a method receives; differences in dose can masquerade as differences in credit quality.
+\end{description}

@@ -54,9 +54,9 @@ Appendix: paper list, glossary
 | 调研 04 Memory-R2 | ✅（未读到全文，只有检索摘要；LoGo-GRPO 公式/组大小/算力未知） |
 | 调研 05 趋势与可行性 | ✅ |
 | LaTeX 骨架（en） | ✅ 可编译 |
-| 英文各章 §1–§9 | ✅ §2–§9 完成；⏳ §1、摘要、附录、统一校对与压缩篇幅 |
-| 英文编译 PDF | ☐ |
-| 中文翻译 | ☐ |
+| 英文各章 §1–§9 | ✅ 全部完成并统稿（30 页，0 未定义引用，0 overfull） |
+| 英文编译 PDF | ✅ latex/en/main.pdf |
+| 中文翻译 | ⏳ 骨架 latex/zh 已建（共用 en/bib），分三组并行翻译 |
 | 中文编译 PDF | ☐ |
 
 ## 关键发现（写作时必须体现）
@@ -81,3 +81,6 @@ Appendix: paper list, glossary
 - 引用 key：小写 一作姓+年份+标题首个实词（如 `shao2024deepseekmath`、`yan2026memory`=Memory-R2、`yan2025memory`=Memory-R1、`zhang2026credit`=2608.19760）。
 - 未能核实的数字/ID 后加 `\unverified`（渲染为橙色 †）。
 - 章节 label：sec:background, sec:agentic, sec:problem, sec:taxonomy, sec:memory, sec:comparison, sec:toolcredit, sec:agenda。
+
+## 待告知用户的事项
+- 统稿时发现 ToolCredit 项目文档的符号错误：`reports/02_main_results.md` 第 332/345 行（及 README M9 行）把 E3 的工具边际价值写成 −1.97pt [−4.74,+0.79]；按 tool−notool 口径（.733 − .713）应为 **+1.97pt [−0.79,+4.74]**。综述第 8 章已按正确符号写；项目文档未改（等用户决定）。
