@@ -1,0 +1,35 @@
+\section{按章节组织的阅读清单}\label{app:reading}
+\normalfont\raggedright
+
+以下是按主题分组的 35 篇必读论文，附 arXiv 编号。标有 \unverified{} 的条目，其编号或细节我们未能对照原始来源核实。
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{基础（第~\ref{sec:background}、\ref{sec:problem}~节）。} PPO~\citep{schulman2017proximal} (1707.06347)；GAE~\citep{schulman2015high} (1506.02438)；DeepSeekMath/GRPO~\citep{shao2024deepseekmath} (2402.03300)；Dr.~GRPO~\citep{liu2025understanding} (2503.20783)；DAPO~\citep{yu2025dapo} (2503.14476)；VC-PPO~\citep{yuan2025whats} (2503.01491)；ScaleRL~\citep{khatri2025art} (2510.13786)；Does RL incentivize reasoning?~\citep{yue2025does} (2504.13837)。
+  \item \textbf{经典信用分配与综述（第~\ref{sec:problem}、\ref{sec:taxonomy}~节）。} 时间信用分配综述~\citep{pignatelli2024survey} (2312.01072)；RUDDER~\citep{arjonamedina2019rudder} (1806.07857)；Hindsight Credit Assignment~\citep{harutyunyan2019hindsight} (1912.02503)；From reasoning to agentic credit assignment~\citep{zhang2026from} (2604.09459)。
+  \item \textbf{智能体 RL（第~\ref{sec:agentic}~节）。} 智能体 RL 全景综述~\citep{zhang2025landscape} (2509.02547)；Search-R1~\citep{jin2025search} (2503.09516)；SimpleTIR~\citep{xue2025simpletir} (2509.02479)；RAGEN~\citep{wang2025ragen} (2504.20073)；Branching Policy Optimization~\citep{bpo2026branching} (2607.14171)。
+  \item \textbf{信用分配方法（第~\ref{sec:taxonomy}~节）。} PURE~\citep{cheng2025stop} (2504.15275)；VinePPO~\citep{kazemnejad2024vineppo} (2410.01679)；Tree-GRPO~\citep{ji2025tree} (2509.21240)；GiGPO~\citep{feng2025group} (2505.10978)；MT-GRPO~\citep{wei2025reinforcing} (2505.11821)；SWEET-RL~\citep{zhou2025sweet} (2503.15478)；TRACE~\citep{trace2026turn} (2607.13988)；HCAPO~\citep{tan2026hindsight} (2603.08754)；高熵分叉 token~\citep{wang2025beyond} (2506.01939)。
+  \item \textbf{审计与失效模式（第~\ref{sec:tax-failures}、\ref{sec:toolcredit}~节）。} Credit Without Ground Truth~\citep{zhang2026credit} (2608.19760) 与 Proof-of-Use~\citep{proofofuse2025proof} (2510.10931)。
+  \item \textbf{记忆智能体（第~\ref{sec:memory}~节）。} Memory-R1~\citep{yan2025memory} (2508.19828)；Memory-R2~\citep{yan2026memory} (2605.21768)；Mem-T~\citep{memt2026mem} (2601.23014)；MEM1~\citep{zhou2025mem1} (2506.15841)\unverified；LoCoMo~\citep{maharana2024evaluating} (2402.17753)；LongMemEval~\citep{wu2024longmemeval} (2410.10813)；MemoryAgentBench~\citep{hu2025evaluating} (2507.05257)。
+\end{itemize}
+
+\section{术语表}\label{app:glossary}
+
+\begin{description}[leftmargin=0pt,itemsep=1pt,font=\normalfont\bfseries]
+  \item[RLVR（可验证奖励强化学习）。] 带可验证奖励的 RL：用程序化检查器（答案比对、单元测试）代替学习得到的奖励模型。
+  \item[GRPO（组相对策略优化）。] Group Relative Policy Optimization：对每个 prompt 采样 $G$ 个回答，把组内归一化后的奖励作为每个 token 的优势（式~(\ref{eq:grpo-adv})）。
+  \item[Advantage（优势，$A$）。] 某个动作（token、轮或轨迹）比基线好多少；即策略梯度中每个 token 的权重。
+  \item[GAE（广义优势估计）。] Generalized advantage estimation：基于学习得到的 critic，对 TD 误差做 $\lambda$ 加权求和（式~(\ref{eq:gae})）。
+  \item[PRM（过程奖励模型）。] Process reward model：对中间步骤而不仅是最终结果打分的评分器。
+  \item[Rollout（采样轨迹）。] 策略从初始状态到回合结束采样得到的一条轨迹。
+  \item[Rerollout / branching（重新 rollout / 分支）。] 从某个中间状态（借助前缀重放或沙箱快照）重新采样后续，用以估计该状态的价值或兄弟基线。
+  \item[Anchor state（锚点状态）。] 在同一 prompt 的多条 rollout 中重复出现的环境状态，使得在该处采取的动作可以直接比较（GiGPO）。
+  \item[Zero-variance group（零方差组）。] 组内奖励全部相同的 GRPO 组；其优势为零，因此不贡献梯度（式~(\ref{eq:zerovar})）。
+  \item[Horizon（时域，$T$）。] 从回合开始到获得奖励之间的决策次数（以轮或 token 计）。
+  \item[Turn（轮）。] 以一次工具调用或最终答案结尾的一段生成 token；是轮级信用的基本单位。
+  \item[Conservative credit（守恒信用）。] 在每条轨迹内求和为零的逐轮修正，因此只重新分配结果奖励，而不额外增加奖励。
+  \item[Over-calling（过度调用工具）。] 习得的多于必要次数调用工具的习惯，通常由按调用给予的奖励或非守恒信用诱发。
+  \item[Exposure（暴露度）。] 信用分配方法实际改变了优势的轨迹所占比例（例如至少含两个可区分轮的轨迹）。
+  \item[Matched compute（等算力）。] 在相等的 rollout 预算（轨迹数、token 数、工具调用数）下比较方法，而不是在相等的更新次数下比较。
+  \item[Effective sample size（有效样本量）。] 经过滤或稀疏信用之后，真正贡献梯度的样本数；可作为训练剂量的代理指标。
+  \item[Training dose（训练剂量）。] 一个方法所获得的梯度信号总量；剂量差异可能伪装成信用质量的差异。
+\end{description}
